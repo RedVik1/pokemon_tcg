@@ -55,41 +55,50 @@ class PortfolioItem(BaseModel):
     market_price: float
     condition: str
 
+
 @app.get("/api/market/search/{query}")
 def search_market(query: str):
-    url = f"https://api.pokemontcg.io/v2/cards?q=name:{query}"
+    # Вместо того чтобы вклеивать query в строку вручную, 
+    # мы передаем его в словарь params. Это исключает ошибки формата.
+    url = "https://api.pokemontcg.io/v2/cards"
+    params = {"q": f"name:{query}"}
     
-    # Добавляем твой личный ключ, чтобы сервер PokemonTCG пропускал нас без проверок
     headers = {
-        "X-Api-Key": "b59140f9-4c47-4602-a3e5-c419bdd4b797", # <-- ЗАМЕНИ ЭТОТ ТЕКСТ НА КЛЮЧ
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
+        "X-Api-Key": "b59140f9-4c47-4602-a3e5-c419bdd4b797", # Убедись, что ключ тут верный
+        "User-Agent": "Mozilla/5.0"
     }
     
     try:
-        # Даем серверу до 10 секунд на ответ (картинок много, они тяжелые)
-        res = requests.get(url, headers=headers, timeout=10)
-        res.raise_for_status() # Если сервер выдаст ошибку 403, код сразу перейдет в except
+        # requests сам превратит это в правильный URL с кодировкой символов
+        res = requests.get(url, headers=headers, params=params, timeout=10)
+        
+        # Если будет 404 или другая ошибка, мы увидим это в логах Render
+        res.raise_for_status() 
+        
         cards = res.json().get("data", [])
         
         results = []
-        for card in cards[:12]: # Берем первые 12 карт
-            price = card.get("cardmarket", {}).get("prices", {}).get("averageSellPrice", 0.0)
+        for card in cards[:12]:
+            # Безопасное получение цены, если её нет в API
+            price_data = card.get("cardmarket", {}).get("prices", {})
+            price = price_data.get("averageSellPrice") or price_data.get("trendPrice") or 0.0
+            
             results.append({
                 "id": card["id"],
                 "name": card["name"],
                 "set": card.get("set", {}).get("name", "Unknown"),
                 "image": card["images"]["small"],
-                "price": price
+                "price": float(price)
             })
-            
-        if not results:
-            raise ValueError("По этому запросу карт не найдено")
             
         return {"data": results}
         
+    except requests.exceptions.HTTPError as e:
+        # Выводим подробности ошибки в логи Render
+        print(f"HTTP Error: {e.response.status_code} - {e.response.text}")
+        raise HTTPException(status_code=e.response.status_code, detail=f"TCG API Error: {e.response.text}")
     except Exception as e:
-        # Никаких заглушек. Если ошибка — выводим её честно.
-        raise HTTPException(status_code=500, detail=f"Ошибка сервера Pokémon TCG: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/portfolio/add")
 def add_to_portfolio(item: PortfolioItem):
