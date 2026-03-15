@@ -58,14 +58,21 @@ class PortfolioItem(BaseModel):
 @app.get("/api/market/search/{query}")
 def search_market(query: str):
     url = f"https://api.pokemontcg.io/v2/cards?q=name:{query}"
-    headers = {"User-Agent": "Mozilla/5.0"}
+    
+    # Добавляем твой личный ключ, чтобы сервер PokemonTCG пропускал нас без проверок
+    headers = {
+        "X-Api-Key": "b59140f9-4c47-4602-a3e5-c419bdd4b797", # <-- ЗАМЕНИ ЭТОТ ТЕКСТ НА КЛЮЧ
+        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)"
+    }
+    
     try:
-        res = requests.get(url, headers=headers, timeout=5)
-        res.raise_for_status()
+        # Даем серверу до 10 секунд на ответ (картинок много, они тяжелые)
+        res = requests.get(url, headers=headers, timeout=10)
+        res.raise_for_status() # Если сервер выдаст ошибку 403, код сразу перейдет в except
         cards = res.json().get("data", [])
         
         results = []
-        for card in cards[:12]:
+        for card in cards[:12]: # Берем первые 12 карт
             price = card.get("cardmarket", {}).get("prices", {}).get("averageSellPrice", 0.0)
             results.append({
                 "id": card["id"],
@@ -74,12 +81,15 @@ def search_market(query: str):
                 "image": card["images"]["small"],
                 "price": price
             })
+            
+        if not results:
+            raise ValueError("По этому запросу карт не найдено")
+            
         return {"data": results}
+        
     except Exception as e:
-        return {"data": [
-            {"id": "base1-4", "name": f"{query.capitalize()} (Holo)", "set": "Base Set", "image": "https://images.pokemontcg.io/base1/4.png", "price": 350.00},
-            {"id": "smp-SM226", "name": f"{query.capitalize()} GX", "set": "Promo", "image": "https://images.pokemontcg.io/smp/SM226.png", "price": 45.00}
-        ]}
+        # Никаких заглушек. Если ошибка — выводим её честно.
+        raise HTTPException(status_code=500, detail=f"Ошибка сервера Pokémon TCG: {str(e)}")
 
 @app.post("/api/portfolio/add")
 def add_to_portfolio(item: PortfolioItem):
