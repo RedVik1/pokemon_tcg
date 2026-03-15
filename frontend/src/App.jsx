@@ -16,7 +16,7 @@ function Market() {
     if (!query) return;
     setLoading(true);
     try {
-      const res = await axios.get(`http://127.0.0.1:8000/api/market/search/${query}`);
+      const res = await axios.get(`https://pokemon-tcg-nzxt.onrender.com/api/market/search/${query}`);
       setCards(res.data.data);
     } catch (err) { alert("Ошибка API"); }
     setLoading(false);
@@ -24,7 +24,7 @@ function Market() {
 
   const addToPortfolio = async () => {
     try {
-      await axios.post('http://127.0.0.1:8000/api/portfolio/add', {
+      await axios.post('https://pokemon-tcg-nzxt.onrender.com/api/portfolio/add', {
         card_id: selectedCard.id,
         name: selectedCard.name,
         set_name: selectedCard.set,
@@ -97,13 +97,13 @@ function Dashboard() {
   const [data, setData] = useState({ stats: {}, chart_data: [], items: [] });
 
   const loadData = async () => {
-    const res = await axios.get('http://127.0.0.1:8000/api/portfolio/analytics');
+    const res = await axios.get('https://pokemon-tcg-nzxt.onrender.com/api/portfolio/analytics');
     setData(res.data);
   };
   useEffect(() => { loadData(); }, []);
 
   const removeItem = async (id) => {
-    await axios.delete(`http://127.0.0.1:8000/api/portfolio/${id}`);
+    await axios.delete(`https://pokemon-tcg-nzxt.onrender.com/api/portfolio/${id}`);
     loadData();
   };
 
