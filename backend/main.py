@@ -57,48 +57,49 @@ class PortfolioItem(BaseModel):
     condition: str
 
 
-import time # Добавь этот импорт в самый верх файла
-
 @app.get("/api/market/search/{query}")
 def search_market(query: str):
+    # Очищаем запрос от пробелов
+    query = query.strip().lower()
     url = "https://api.pokemontcg.io/v2/cards"
-    params = {"q": f"name:{query}"}
+    params = {"q": f"name:{query}", "pageSize": 12}
+    
     headers = {
         "X-Api-Key": "b59140f9-4c47-4602-a3e5-c419bdd4b797",
-        "User-Agent": "Mozilla/5.0"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept-Encoding": "identity", # Запрещаем сжатие, чтобы ускорить обработку
+        "Connection": "keep-alive"
     }
 
-    # Пытаемся сделать запрос до 3 раз
-    for attempt in range(3):
+    for attempt in range(2):
         try:
-            # Увеличиваем таймаут до 20 секунд
-            res = requests.get(url, headers=headers, params=params, timeout=20)
-            res.raise_for_status()
+            # 40 секунд — это очень много, должно хватить даже самому ленивому серверу
+            res = requests.get(url, headers=headers, params=params, timeout=40)
             
-            cards = res.json().get("data", [])
-            results = []
-            for card in cards[:12]:
-                price_data = card.get("cardmarket", {}).get("prices", {})
-                price = price_data.get("averageSellPrice") or price_data.get("trendPrice") or 0.0
+            if res.status_code == 200:
+                data = res.json().get("data", [])
+                if not data:
+                    return {"data": []}
                 
-                results.append({
-                    "id": card["id"],
-                    "name": card["name"],
-                    "set": card.get("set", {}).get("name", "Unknown"),
-                    "image": card["images"]["small"],
-                    "price": float(price)
-                })
-            return {"data": results}
-
-        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
-            print(f"Попытка {attempt + 1} не удалась (таймаут). Ждем и пробуем снова...")
-            time.sleep(1) # Ждем 1 секунду перед следующей попыткой
-            continue
+                results = []
+                for card in data:
+                    prices = card.get("cardmarket", {}).get("prices", {})
+                    price = prices.get("averageSellPrice") or prices.get("trendPrice") or 0.0
+                    results.append({
+                        "id": card["id"],
+                        "name": card["name"],
+                        "set": card.get("set", {}).get("name", "Unknown"),
+                        "image": card["images"]["small"],
+                        "price": float(price)
+                    })
+                return {"data": results}
+                
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-    
-    # Если все 3 попытки провалились
-    raise HTTPException(status_code=504, detail="Pokémon TCG API слишком долго не отвечает. Попробуйте еще раз через минуту.")
+            print(f"Попытка {attempt+1} провалилась: {e}")
+            time.sleep(2)
+            continue
+            
+    raise HTTPException(status_code=504, detail="API Pokémon TCG перегружен. Попробуйте еще раз через 10 секунд.")
 
 @app.post("/api/portfolio/add")
 def add_to_portfolio(item: PortfolioItem):
