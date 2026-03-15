@@ -7,6 +7,7 @@ from psycopg2.extras import RealDictCursor
 import requests
 from datetime import datetime, timedelta
 import random
+import time
 
 app = FastAPI(title="Collectr Pro Analytics API")
 
@@ -56,49 +57,48 @@ class PortfolioItem(BaseModel):
     condition: str
 
 
+import time # Добавь этот импорт в самый верх файла
+
 @app.get("/api/market/search/{query}")
 def search_market(query: str):
-    # Вместо того чтобы вклеивать query в строку вручную, 
-    # мы передаем его в словарь params. Это исключает ошибки формата.
     url = "https://api.pokemontcg.io/v2/cards"
     params = {"q": f"name:{query}"}
-    
     headers = {
-        "X-Api-Key": "b59140f9-4c47-4602-a3e5-c419bdd4b797", # Убедись, что ключ тут верный
+        "X-Api-Key": "b59140f9-4c47-4602-a3e5-c419bdd4b797",
         "User-Agent": "Mozilla/5.0"
     }
+
+    # Пытаемся сделать запрос до 3 раз
+    for attempt in range(3):
+        try:
+            # Увеличиваем таймаут до 20 секунд
+            res = requests.get(url, headers=headers, params=params, timeout=20)
+            res.raise_for_status()
+            
+            cards = res.json().get("data", [])
+            results = []
+            for card in cards[:12]:
+                price_data = card.get("cardmarket", {}).get("prices", {})
+                price = price_data.get("averageSellPrice") or price_data.get("trendPrice") or 0.0
+                
+                results.append({
+                    "id": card["id"],
+                    "name": card["name"],
+                    "set": card.get("set", {}).get("name", "Unknown"),
+                    "image": card["images"]["small"],
+                    "price": float(price)
+                })
+            return {"data": results}
+
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as e:
+            print(f"Попытка {attempt + 1} не удалась (таймаут). Ждем и пробуем снова...")
+            time.sleep(1) # Ждем 1 секунду перед следующей попыткой
+            continue
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
     
-    try:
-        # requests сам превратит это в правильный URL с кодировкой символов
-        res = requests.get(url, headers=headers, params=params, timeout=10)
-        
-        # Если будет 404 или другая ошибка, мы увидим это в логах Render
-        res.raise_for_status() 
-        
-        cards = res.json().get("data", [])
-        
-        results = []
-        for card in cards[:12]:
-            # Безопасное получение цены, если её нет в API
-            price_data = card.get("cardmarket", {}).get("prices", {})
-            price = price_data.get("averageSellPrice") or price_data.get("trendPrice") or 0.0
-            
-            results.append({
-                "id": card["id"],
-                "name": card["name"],
-                "set": card.get("set", {}).get("name", "Unknown"),
-                "image": card["images"]["small"],
-                "price": float(price)
-            })
-            
-        return {"data": results}
-        
-    except requests.exceptions.HTTPError as e:
-        # Выводим подробности ошибки в логи Render
-        print(f"HTTP Error: {e.response.status_code} - {e.response.text}")
-        raise HTTPException(status_code=e.response.status_code, detail=f"TCG API Error: {e.response.text}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    # Если все 3 попытки провалились
+    raise HTTPException(status_code=504, detail="Pokémon TCG API слишком долго не отвечает. Попробуйте еще раз через минуту.")
 
 @app.post("/api/portfolio/add")
 def add_to_portfolio(item: PortfolioItem):
