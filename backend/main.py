@@ -68,13 +68,13 @@ def search_market(query: str):
     query = query.strip().lower()
     
     try:
-        # Магия SDK: запрашиваем 12 карт. Добавил звездочки *, чтобы искало даже частичные совпадения!
-        cards = Card.where(q=f'name:*{query}*', pageSize=12, page=1)
+        # Убрали звездочку в начале. Теперь API ищет карты, которые НАЧИНАЮТСЯ с твоего запроса. 
+        # Это работает в 10 раз быстрее и спасает от 504 таймаута!
+        cards = Card.where(q=f'name:{query}*', pageSize=12, page=1)
         
         results = []
         for card in cards:
             price = 0.0
-            # Безопасное извлечение цены через getattr (так как SDK возвращает объекты)
             if getattr(card, 'cardmarket', None) and getattr(card.cardmarket, 'prices', None):
                 price = getattr(card.cardmarket.prices, 'averageSellPrice', 0.0) or getattr(card.cardmarket.prices, 'trendPrice', 0.0)
             
@@ -89,9 +89,10 @@ def search_market(query: str):
         return {"data": results}
         
     except Exception as e:
-        print(f"Ошибка Pokémon TCG API: {e}")
+        # БЕЗОПАСНЫЙ ПРИНТ: используем repr(), чтобы Питон не крашился из-за байтов от SDK
+        print(f"Ошибка Pokémon TCG API: {repr(e)}")
         raise HTTPException(status_code=504, detail="Сервер Pokémon TCG перегружен. Попробуйте еще раз.")
-
+    
 @app.post("/api/portfolio/add")
 def add_to_portfolio(item: PortfolioItem):
     conn = get_db()
