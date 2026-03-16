@@ -1,14 +1,23 @@
 import os
+import random
+import time
+from datetime import datetime, timedelta
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import requests
-from datetime import datetime, timedelta
-import random
-import time
+from pokemontcgsdk import RestClient, Card
 
+# --- НАСТРОЙКИ БЕЗОПАСНОСТИ И API ---
+# Читаем ключ из переменных окружения. Если его там нет, берем запасной (для тестов на домашнем ПК)
+API_KEY = os.getenv("POKEMONTCG_API_KEY", "b59140f9-4c47-4602-a3e5-c419bdd4b797")
+RestClient.configure(API_KEY)
+
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:1111@127.0.0.1:5432/postgres")
+
+# --- ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ ---
 app = FastAPI(title="Collectr Pro Analytics API")
 
 app.add_middleware(
@@ -18,14 +27,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Render автоматически подставит сюда ссылку на свою базу данных!
-# А если запускаешь дома - будет использовать локальную.
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:1111@127.0.0.1:5432/postgres")
-
 def get_db():
     return psycopg2.connect(DATABASE_URL)
 
-# МАГИЯ: При запуске сервера в облаке он сам создаст таблицу, если её нет!
 @app.on_event("startup")
 def startup_event():
     conn = get_db()
@@ -47,6 +51,7 @@ def startup_event():
     cur.close()
     conn.close()
 
+# --- МОДЕЛИ ДАННЫХ ---
 class PortfolioItem(BaseModel):
     card_id: str
     name: str
@@ -56,50 +61,36 @@ class PortfolioItem(BaseModel):
     market_price: float
     condition: str
 
+# --- ЭНДПОИНТЫ ---
 
 @app.get("/api/market/search/{query}")
 def search_market(query: str):
-    # Очищаем запрос от пробелов
     query = query.strip().lower()
-    url = "https://api.pokemontcg.io/v2/cards"
-    params = {"q": f"name:{query}", "pageSize": 12}
     
-    headers = {
-        "X-Api-Key": "b59140f9-4c47-4602-a3e5-c419bdd4b797",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Accept-Encoding": "identity", # Запрещаем сжатие, чтобы ускорить обработку
-        "Connection": "keep-alive"
-    }
-
-    for attempt in range(2):
-        try:
-            # 40 секунд — это очень много, должно хватить даже самому ленивому серверу
-            res = requests.get(url, headers=headers, params=params, timeout=40)
+    try:
+        # Магия SDK: запрашиваем 12 карт. Добавил звездочки *, чтобы искало даже частичные совпадения!
+        cards = Card.where(q=f'name:*{query}*', pageSize=12, page=1)
+        
+        results = []
+        for card in cards:
+            price = 0.0
+            # Безопасное извлечение цены через getattr (так как SDK возвращает объекты)
+            if getattr(card, 'cardmarket', None) and getattr(card.cardmarket, 'prices', None):
+                price = getattr(card.cardmarket.prices, 'averageSellPrice', 0.0) or getattr(card.cardmarket.prices, 'trendPrice', 0.0)
             
-            if res.status_code == 200:
-                data = res.json().get("data", [])
-                if not data:
-                    return {"data": []}
-                
-                results = []
-                for card in data:
-                    prices = card.get("cardmarket", {}).get("prices", {})
-                    price = prices.get("averageSellPrice") or prices.get("trendPrice") or 0.0
-                    results.append({
-                        "id": card["id"],
-                        "name": card["name"],
-                        "set": card.get("set", {}).get("name", "Unknown"),
-                        "image": card["images"]["small"],
-                        "price": float(price)
-                    })
-                return {"data": results}
-                
-        except Exception as e:
-            print(f"Попытка {attempt+1} провалилась: {e}")
-            time.sleep(2)
-            continue
+            results.append({
+                "id": card.id,
+                "name": card.name,
+                "set": card.set.name if getattr(card, 'set', None) else "Unknown",
+                "image": card.images.small if getattr(card, 'images', None) else "",
+                "price": float(price) if price else 0.0
+            })
             
-    raise HTTPException(status_code=504, detail="API Pokémon TCG перегружен. Попробуйте еще раз через 10 секунд.")
+        return {"data": results}
+        
+    except Exception as e:
+        print(f"Ошибка Pokémon TCG API: {e}")
+        raise HTTPException(status_code=504, detail="Сервер Pokémon TCG перегружен. Попробуйте еще раз.")
 
 @app.post("/api/portfolio/add")
 def add_to_portfolio(item: PortfolioItem):
@@ -131,6 +122,7 @@ def get_portfolio_analytics():
         profit_loss = current_value - total_invested
         roi = (profit_loss / total_invested * 100) if total_invested > 0 else 0
 
+        # Генерация данных для графика
         chart_data = []
         base_val = current_value * 0.8 
         for i in range(30, -1, -1):
