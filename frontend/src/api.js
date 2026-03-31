@@ -1,7 +1,11 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:8000',
+  // ✅ Если мы на Render, он будет использовать корень сайта. 
+  // ✅ Если на компе - localhost.
+  baseURL: window.location.origin.includes("localhost") 
+    ? "http://localhost:8000" 
+    : window.location.origin
 });
 
 // Attach JWT token from localStorage to every request
