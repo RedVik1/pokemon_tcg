@@ -121,7 +121,7 @@ function EliteLoginPage() {
         // Регистрация
         if (password.length < 6) throw new Error("Password must be at least 6 characters.");
         
-        const res = await fetch("http://localhost:8000/users/register", {
+        const res = await fetch("/users/register", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email, password })
@@ -613,7 +613,7 @@ function MainApp() {
       const targetId = card.pokemon_tcg_id || card.id;
       const token = localStorage.getItem("token");
 
-      const response = await fetch("http://localhost:8000/collections/add", {
+      const response = await fetch("/collections/add", {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
           body: JSON.stringify({ pokemon_tcg_id: String(targetId), condition: "Mint" })
