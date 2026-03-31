@@ -141,9 +141,7 @@ async def fetch_card_data(pokemon_tcg_id: str) -> Dict[str, Any]:
         logger.error(f"Fetch Error {pokemon_tcg_id}: {e}")
         return {"name": "Unknown", "set_name": "Error", "image_url": None, "price": 0.0, "rarity": "Common"}
 
-
 async def search_cards_by_name(query: str, page: int = 1, limit: int = 48, rarity: str = "", sort_by: str = "Newest") -> List[Dict[str, Any]]:
-    # Кэшируем теперь с учетом всех параметров, включая страницу и сортировку
     cache_key = f"q_{query}_r_{rarity}_s_{sort_by}_p_{page}"
     
     if cache_key in _search_cache:
@@ -151,44 +149,46 @@ async def search_cards_by_name(query: str, page: int = 1, limit: int = 48, rarit
         if time.time() - timestamp < CACHE_TTL:
             return cached_data
 
-    # 🔥 ОПРЕДЕЛЯЕМ ПАРАМЕТР orderBy ДЛЯ API (Глобальная сортировка)
+    # 1. Сортировка на стороне API
     api_order = "-set.releaseDate" 
     if sort_by == "Price: High to Low":
-        # Сортируем по рыночной цене Holofoil или Normal версий (самые дорогие первыми)
         api_order = "-tcgplayer.prices.holofoil.market,-tcgplayer.prices.normal.market"
     elif sort_by == "Price: Low to High":
         api_order = "tcgplayer.prices.holofoil.market,tcgplayer.prices.normal.market"
     elif sort_by == "Name: A-Z":
         api_order = "name"
 
-    # Формируем строку запроса q
-    q_str = 'supertype:pokemon'
+    # 2. Формируем строку запроса q
+    # 🔥 Добавляем обязательное условие: цена должна быть больше 0
+    q_parts = ['supertype:pokemon', '(tcgplayer.prices.holofoil.market:[0.01 TO *] OR tcgplayer.prices.normal.market:[0.01 TO *])']
+
     if rarity and rarity != "All":
         if rarity == "Secret Rare":
-            q_str += ' (rarity:"Rare Secret" OR rarity:"Hyper Rare" OR rarity:"Secret Rare")'
+            q_parts.append('(rarity:"Rare Secret" OR rarity:"Hyper Rare" OR rarity:"Secret Rare")')
         elif rarity == "Ultra Rare":
-            q_str += ' (rarity:"Rare Ultra" OR rarity:"Ultra Rare")'
+            q_parts.append('(rarity:"Rare Ultra" OR rarity:"Ultra Rare")')
         elif rarity == "Holo Rare":
-            q_str += ' (rarity:"Rare Holo" OR rarity:"Holo Rare")'
+            q_parts.append('(rarity:"Rare Holo" OR rarity:"Holo Rare")')
         elif rarity == "Double Rare":
-            q_str += ' (rarity:"Double Rare" OR rarity:"Rare Holo V" OR rarity:"Rare Holo EX")'
+            q_parts.append('(rarity:"Double Rare" OR rarity:"Rare Holo V" OR rarity:"Rare Holo EX")')
         else:
-            q_str += f' rarity:"{rarity}"'
+            q_parts.append(f'rarity:"{rarity}"')
 
     if query:
-        q_str += f' name:"*{query}*"'
+        q_parts.append(f'name:"*{query}*"')
+
+    q_string = " ".join(q_parts)
 
     url = "https://api.pokemontcg.io/v2/cards"
     headers = {"X-Api-Key": API_KEY} if API_KEY else {}
             
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
-            # Запрашиваем ровно одну страницу (page), которую просит фронтенд
             resp = await client.get(url, params={
-                "q": q_str, 
+                "q": q_string, 
                 "page": page, 
                 "pageSize": limit, 
-                "orderBy": api_order, # 🔥 Сортировка на стороне API по всей базе
+                "orderBy": api_order,
                 "select": "id,name,images,tcgplayer,rarity,set"
             }, headers=headers)
             
@@ -198,6 +198,9 @@ async def search_cards_by_name(query: str, page: int = 1, limit: int = 48, rarit
             results = []
             for c in data:
                 price = _extract_price(c)
+                # Дополнительная проверка на всякий случай
+                if price <= 0: continue
+                
                 images = c.get("images", {})
                 image_url = images.get("large") or images.get("small")
                 if not image_url: continue
