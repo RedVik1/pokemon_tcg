@@ -143,84 +143,79 @@ async def fetch_card_data(pokemon_tcg_id: str) -> Dict[str, Any]:
 
 
 async def search_cards_by_name(query: str, page: int = 1, limit: int = 48, rarity: str = "", sort_by: str = "Newest") -> List[Dict[str, Any]]:
-    cache_key = f"full_query_{query}_rarity_{rarity}"
-    full_results = []
+    # Кэшируем теперь с учетом всех параметров, включая страницу и сортировку
+    cache_key = f"q_{query}_r_{rarity}_s_{sort_by}_p_{page}"
     
     if cache_key in _search_cache:
         timestamp, cached_data = _search_cache[cache_key]
         if time.time() - timestamp < CACHE_TTL:
-            full_results = cached_data
-            
-    if not full_results:
-        q_str = 'supertype:pokemon'
-        if rarity:
-            rarity_query = ""
-            if rarity == "Secret Rare":
-                rarity_query = '(rarity:"Rare Secret" OR rarity:"Hyper Rare" OR rarity:"Secret Rare")'
-            elif rarity == "Ultra Rare":
-                rarity_query = '(rarity:"Rare Ultra" OR rarity:"Ultra Rare")'
-            elif rarity == "Holo Rare":
-                rarity_query = '(rarity:"Rare Holo" OR rarity:"Holo Rare")'
-            elif rarity == "Double Rare":
-                rarity_query = '(rarity:"Double Rare" OR rarity:"Rare Holo V" OR rarity:"Rare Holo EX")'
-            else:
-                rarity_query = f'rarity:"{rarity}"'
-            q_str += f' {rarity_query}'
+            return cached_data
 
-        if query:
-            q_str += f' name:"*{query}*"'
-
-        url = "https://api.pokemontcg.io/v2/cards"
-        headers = {"X-Api-Key": API_KEY} if API_KEY else {}
-            
-        try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                tasks = [
-                    client.get(url, params={"q": q_str, "page": i, "pageSize": 250, "orderBy": "-set.releaseDate", "select": "id,name,images,tcgplayer,rarity,set"}, headers=headers)
-                    for i in range(1, 3) 
-                ]
-                responses = await asyncio.gather(*tasks, return_exceptions=True)
-                
-                seen_ids = set()
-                for resp in responses:
-                    if isinstance(resp, Exception) or resp.status_code != 200: continue
-                    data = resp.json().get("data", [])
-                    for c in data:
-                        c_id = c.get("id")
-                        if c_id in seen_ids: continue
-                            
-                        images = c.get("images", {})
-                        image_url = images.get("large") or images.get("small")
-                        if not image_url: continue
-                            
-                        price = _extract_price(c)
-                        if price <= 0: continue 
-                        
-                        seen_ids.add(c_id)
-                        full_results.append({
-                            "id": c_id,
-                            "name": c.get("name", "Unknown"),
-                            "set_name": c.get("set", {}).get("name", ""),
-                            "rarity": c.get("rarity", "Common"),
-                            "image_url": image_url,
-                            "price": price,
-                            "history": _generate_mock_history(price, c_id)
-                        })
-                
-                if full_results:
-                    _search_cache[cache_key] = (time.time(), full_results)
-        except Exception as e:
-            logger.error(f"Search API Error: {e}")
-
-    sorted_results = full_results.copy()
-    
+    # 🔥 ОПРЕДЕЛЯЕМ ПАРАМЕТР orderBy ДЛЯ API (Глобальная сортировка)
+    api_order = "-set.releaseDate" 
     if sort_by == "Price: High to Low":
-        sorted_results.sort(key=lambda x: x["price"], reverse=True)
+        # Сортируем по рыночной цене Holofoil или Normal версий (самые дорогие первыми)
+        api_order = "-tcgplayer.prices.holofoil.market,-tcgplayer.prices.normal.market"
     elif sort_by == "Price: Low to High":
-        sorted_results.sort(key=lambda x: x["price"])
+        api_order = "tcgplayer.prices.holofoil.market,tcgplayer.prices.normal.market"
     elif sort_by == "Name: A-Z":
-        sorted_results.sort(key=lambda x: x["name"])
+        api_order = "name"
 
-    start = (page - 1) * limit
-    end = start + limit
-    return sorted_results[start:end]
+    # Формируем строку запроса q
+    q_str = 'supertype:pokemon'
+    if rarity and rarity != "All":
+        if rarity == "Secret Rare":
+            q_str += ' (rarity:"Rare Secret" OR rarity:"Hyper Rare" OR rarity:"Secret Rare")'
+        elif rarity == "Ultra Rare":
+            q_str += ' (rarity:"Rare Ultra" OR rarity:"Ultra Rare")'
+        elif rarity == "Holo Rare":
+            q_str += ' (rarity:"Rare Holo" OR rarity:"Holo Rare")'
+        elif rarity == "Double Rare":
+            q_str += ' (rarity:"Double Rare" OR rarity:"Rare Holo V" OR rarity:"Rare Holo EX")'
+        else:
+            q_str += f' rarity:"{rarity}"'
+
+    if query:
+        q_str += f' name:"*{query}*"'
+
+    url = "https://api.pokemontcg.io/v2/cards"
+    headers = {"X-Api-Key": API_KEY} if API_KEY else {}
+            
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            # Запрашиваем ровно одну страницу (page), которую просит фронтенд
+            resp = await client.get(url, params={
+                "q": q_str, 
+                "page": page, 
+                "pageSize": limit, 
+                "orderBy": api_order, # 🔥 Сортировка на стороне API по всей базе
+                "select": "id,name,images,tcgplayer,rarity,set"
+            }, headers=headers)
+            
+            resp.raise_for_status()
+            data = resp.json().get("data", [])
+            
+            results = []
+            for c in data:
+                price = _extract_price(c)
+                images = c.get("images", {})
+                image_url = images.get("large") or images.get("small")
+                if not image_url: continue
+                
+                results.append({
+                    "id": c.get("id"),
+                    "name": c.get("name", "Unknown"),
+                    "set_name": c.get("set", {}).get("name", ""),
+                    "rarity": c.get("rarity", "Common"),
+                    "image_url": image_url,
+                    "price": price,
+                    "history": _generate_mock_history(price, c.get("id"))
+                })
+            
+            if results:
+                _search_cache[cache_key] = (time.time(), results)
+            return results
+
+    except Exception as e:
+        logger.error(f"Search API Error: {e}")
+        return []
