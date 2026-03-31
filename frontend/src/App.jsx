@@ -522,7 +522,7 @@ function MainApp() {
   const [selectedColl, setSelectedColl] = useState(null);
 
   // 🔥 Изменили сортировку по умолчанию на самую дорогую
-  const [sortBy, setSortBy] = useState("Price: High to Low");
+  const [sortBy, setSortBy] = useState("Newest");
   const [sortOpen, setSortOpen] = useState(false);
   const [rarityFilter, setRarityFilter] = useState("All");
 
@@ -542,12 +542,17 @@ function MainApp() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // 🔥 Автоматический сброс сортировки при переходе в Портфолио
   useEffect(() => {
-    if (activeTab === "portfolio" && !["Price: High to Low", "Price: Low to High"].includes(sortBy)) {
-        setSortBy("Price: High to Low");
+    if (activeTab === "portfolio") {
+      // В портфолио всегда ставим "Сначала дорогие"
+      setSortBy("Price: High to Low");
+    } else if (activeTab === "explore") {
+      // На главной всегда возвращаем "Новинки"
+      setSortBy("Newest");
     }
-  }, [activeTab, sortBy]);
+    // Сбрасываем страницу при переключении вкладок
+    setExplorePage(1);
+  }, [activeTab]);
 
   const showToast = (message, type = "success") => {
     setToast({ visible: true, message, type });
