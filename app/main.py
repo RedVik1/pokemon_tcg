@@ -8,6 +8,8 @@ from typing import List, Optional
 
 import jwt
 from fastapi import FastAPI, Depends, HTTPException, Response
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -186,6 +188,25 @@ async def delete_from_vault(collection_id: int, current_user: User = Depends(get
         await db.delete(coll)
     await db.commit()
     return Response(status_code=204)
+
+# ==========================================
+# 🔥 РАЗДАЧА ФРОНТЕНДА (REACT)
+# ==========================================
+
+# 1. Раздаем картинки, CSS и JS из папки dist/assets
+app.mount("/assets", StaticFiles(directory="dist/assets"), name="assets")
+
+# 2. Все остальные запросы отдаем React-роутеру (index.html)
+@app.get("/{catchall:path}")
+async def serve_react_app(catchall: str):
+    # Если запрос начинается с api/ или это доки - не трогаем (хотя у тебя пути без /api, но оставим для защиты)
+    if catchall in ["docs", "openapi.json"]:
+        raise HTTPException(status_code=404, detail="Not Found")
+        
+    index_path = os.path.join("dist", "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return {"error": "Фронтенд не найден! Папка dist не загрузилась на сервер."}
 
 if __name__ == "__main__":
     import uvicorn
