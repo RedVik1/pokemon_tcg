@@ -1,6 +1,0 @@
-fastapi
-uvicorn
-requests
-psycopg2-binary
-pydantic
-pokemontcgsdk==3.2.0
