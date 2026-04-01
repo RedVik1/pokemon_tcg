@@ -4,7 +4,7 @@ import api, { login } from "./api";
 import {
   Plus, Search, Loader2, CheckCircle, LogOut, User, Trash2,
   TrendingUp, TrendingDown, ExternalLink, ShoppingBag, X, Box, Download, Flame, AlertCircle,
-  LayoutGrid, Briefcase, SlidersHorizontal
+  LayoutGrid, Briefcase, SlidersHorizontal, ChevronLeft
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -13,6 +13,15 @@ import {
 } from "recharts";
 
 const PIE_COLORS = ['#14b8a6', '#8b5cf6', '#f43f5e', '#f59e0b', '#3b82f6', '#ec4899'];
+
+const RARITIES = [
+  { label: "All Rarities", value: "All" }, { label: "Common", value: "Common" },
+  { label: "Uncommon", value: "Uncommon" }, { label: "Rare", value: "Rare" },
+  { label: "Holo Rare", value: "Holo Rare" }, { label: "Double Rare / V", value: "Double Rare" },
+  { label: "Ultra Rare", value: "Ultra Rare" }, { label: "Illustration Rare", value: "Illustration Rare" },
+  { label: "Special Illustration", value: "Special Illustration Rare" },
+  { label: "Secret / Hyper Rare", value: "Secret Rare" }, { label: "Promo", value: "Promo" }
+];
 
 function useDebounce(value, delay = 400) {
   const [v, setV] = useState(value);
@@ -121,10 +130,10 @@ function EliteLoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center overflow-hidden relative px-4">
-      <div className="absolute w-[300px] h-[300px] md:w-96 md:h-96 bg-teal-600/10 rounded-full blur-3xl -left-10 -top-10" />
-      <div className="absolute w-[300px] h-[300px] md:w-96 md:h-96 bg-emerald-600/10 rounded-full blur-3xl -right-10 -bottom-10" />
-      <div className="bg-[#141414] border border-white/[0.06] p-6 md:p-10 rounded-[28px] md:rounded-[40px] w-full max-w-md z-10 shadow-2xl">
+    <div className="min-h-[100dvh] bg-[#0a0a0a] text-white flex items-center justify-center relative overflow-y-auto pt-safe pb-safe">
+      <div className="absolute w-[250px] h-[250px] md:w-96 md:h-96 bg-teal-600/10 rounded-full blur-3xl -left-10 -top-10 pointer-events-none" />
+      <div className="absolute w-[250px] h-[250px] md:w-96 md:h-96 bg-emerald-600/10 rounded-full blur-3xl -right-10 -bottom-10 pointer-events-none" />
+      <div className="bg-[#141414] border border-white/[0.06] p-6 md:p-10 rounded-[28px] md:rounded-[40px] w-full max-w-md z-10 shadow-2xl mx-4 my-8 md:my-0">
         <div className="flex items-center gap-3 mb-6 md:mb-8 justify-center">
           <div className="h-10 w-10 rounded-full bg-teal-500 shadow-[0_0_20px_rgba(20,184,166,0.4)] flex items-center justify-center">
             <Box size={20} className="text-black" />
@@ -144,14 +153,14 @@ function EliteLoginPage() {
         <form onSubmit={handleSubmit} className="space-y-3 md:space-y-4">
           <input required type="email" className="w-full bg-black/50 border border-white/[0.08] rounded-xl px-4 py-4 text-white outline-none focus:border-teal-500 transition-colors" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email address" />
           <input required minLength={isLoginMode ? 1 : 6} className="w-full bg-black/50 border border-white/[0.08] rounded-xl px-4 py-4 text-white outline-none focus:border-teal-500 transition-colors" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" />
-          <button disabled={isLoading} className="w-full py-4 mt-1 md:mt-2 rounded-xl font-black bg-teal-500 text-black hover:bg-teal-400 active:bg-teal-600 transition-colors flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(20,184,166,0.2)]">
+          <button disabled={isLoading} className="w-full py-4 mt-1 md:mt-2 rounded-xl font-black bg-teal-500 text-black active:bg-teal-600 hover:bg-teal-400 transition-colors flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(20,184,166,0.2)]">
             {isLoading ? <Loader2 size={20} className="animate-spin" /> : (isLoginMode ? "Enter Vault" : "Create Account")}
           </button>
         </form>
         <div className="mt-6 md:mt-8 text-center border-t border-white/[0.06] pt-5 md:pt-6">
           <p className="text-sm text-slate-500">
             {isLoginMode ? "Don't have an account?" : "Already have an account?"}
-            <button type="button" onClick={() => setIsLoginMode(!isLoginMode)} className="ml-2 text-teal-400 font-bold active:text-teal-300 transition-colors">
+            <button type="button" onClick={() => setIsLoginMode(!isLoginMode)} className="ml-2 text-teal-400 font-bold active:text-teal-300 hover:text-teal-300 transition-colors">
               {isLoginMode ? "Sign Up" : "Log In"}
             </button>
           </p>
@@ -161,7 +170,8 @@ function EliteLoginPage() {
   );
 }
 
-function MobileHeader({ onOpenPalette }) {
+function MobileHeader({ onLogout, userEmail }) {
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <header className="md:hidden sticky top-0 z-40 w-full bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-white/[0.04] pt-safe">
       <div className="px-4 h-14 flex items-center justify-between">
@@ -169,9 +179,33 @@ function MobileHeader({ onOpenPalette }) {
           <div className="h-6 w-6 rounded-full bg-teal-500 shadow-[0_0_10px_rgba(20,184,166,0.4)]" />
           <span className="text-lg font-black tracking-wider text-white">COLLECTR</span>
         </div>
-        <button onClick={onOpenPalette} className="p-2.5 text-slate-400 active:text-white transition-colors -mr-1">
-          <Search size={22} />
-        </button>
+        <div className="relative">
+          <button onClick={() => setMenuOpen(!menuOpen)} className="p-2 -mr-2 text-slate-400 active:text-white transition-colors">
+            <User size={22} />
+          </button>
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+              <div className="absolute top-full right-0 mt-2 w-56 bg-[#141414] border border-white/[0.08] rounded-xl shadow-2xl z-50 py-2 overflow-hidden">
+                <div className="px-4 py-3 border-b border-white/[0.06]">
+                  <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Signed in as</div>
+                  <div className="text-sm text-white font-bold truncate">{userEmail}</div>
+                </div>
+                <div className="bg-teal-500/10 border border-teal-500/20 mx-3 mt-3 p-3 rounded-xl flex items-center gap-2">
+                  <div className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </div>
+                  <span className="text-[10px] font-black text-emerald-400 tracking-widest uppercase">Live API</span>
+                </div>
+                <button onClick={() => { setMenuOpen(false); onLogout(); }} className="w-full text-left px-4 py-3.5 mt-2 flex items-center gap-3 text-rose-400 font-bold text-sm active:bg-rose-500/10 transition-colors">
+                  <LogOut size={18} />
+                  <span>Log Out</span>
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </header>
   );
@@ -229,14 +263,6 @@ function BottomNav({ activeTab, setActiveTab, onOpenPalette }) {
 }
 
 function RarityFilterSheet({ open, onClose, rarityFilter, setRarityFilter }) {
-  const rarities = [
-    { label: "All Rarities", value: "All" }, { label: "Common", value: "Common" },
-    { label: "Uncommon", value: "Uncommon" }, { label: "Rare", value: "Rare" },
-    { label: "Holo Rare", value: "Holo Rare" }, { label: "Double Rare / V", value: "Double Rare" },
-    { label: "Ultra Rare", value: "Ultra Rare" }, { label: "Illustration Rare", value: "Illustration Rare" },
-    { label: "Special Illustration", value: "Special Illustration Rare" },
-    { label: "Secret / Hyper Rare", value: "Secret Rare" }, { label: "Promo", value: "Promo" }
-  ];
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[90] md:hidden" onClick={onClose}>
@@ -251,10 +277,10 @@ function RarityFilterSheet({ open, onClose, rarityFilter, setRarityFilter }) {
       >
         <div className="flex items-center justify-between p-5 border-b border-white/[0.06]">
           <h3 className="text-white font-bold text-lg">Filter by Rarity</h3>
-          <button onClick={onClose} className="p-1 text-slate-500"><X size={20} /></button>
+          <button onClick={onClose} className="p-2 -mr-1 text-slate-500 active:text-white"><X size={20} /></button>
         </div>
         <div className="overflow-y-auto p-4 pb-8 space-y-1">
-          {rarities.map(r => (
+          {RARITIES.map(r => (
             <button
               key={r.value}
               onClick={() => { setRarityFilter(r.value); onClose(); }}
@@ -270,20 +296,12 @@ function RarityFilterSheet({ open, onClose, rarityFilter, setRarityFilter }) {
 }
 
 function SidebarFilters({ rarityFilter, setRarityFilter }) {
-  const rarities = [
-    { label: "All Rarities", value: "All" }, { label: "Common", value: "Common" },
-    { label: "Uncommon", value: "Uncommon" }, { label: "Rare", value: "Rare" },
-    { label: "Holo Rare", value: "Holo Rare" }, { label: "Double Rare / V", value: "Double Rare" },
-    { label: "Ultra Rare", value: "Ultra Rare" }, { label: "Illustration Rare", value: "Illustration Rare" },
-    { label: "Special Illustration", value: "Special Illustration Rare" },
-    { label: "Secret / Hyper Rare", value: "Secret Rare" }, { label: "Promo", value: "Promo" }
-  ];
   return (
     <div className="hidden lg:block w-64 shrink-0 space-y-8 pr-6 border-r border-white/5">
       <div>
         <h3 className="text-white font-bold mb-4 text-sm uppercase tracking-widest">Database Rarity</h3>
         <div className="space-y-3">
-          {rarities.map(r => (
+          {RARITIES.map(r => (
             <label key={r.value} className="flex items-center gap-3 text-slate-400 text-sm cursor-pointer hover:text-white transition-colors">
               <input type="radio" name="rarity" checked={rarityFilter === r.value} onChange={() => setRarityFilter(r.value)} className="text-teal-500 bg-black border-white/10" />
               {r.label}
@@ -300,14 +318,14 @@ function VaultCard({ coll, onOpenAnalytics, onAdd, onDelete, isPortfolio, quanti
   const basePrice = safePrice(card?.price);
   const displayPrice = isPortfolio ? basePrice * quantity : basePrice;
   const { percent, isUp } = useMemo(() => getChartDataFromHistory(card?.history, "1M", "Raw"), [card?.history]);
-  const setParts = (card?.set_name || "").split(" • ");
+  const setParts = useMemo(() => (card?.set_name || "").split(" • "), [card?.set_name]);
   const setName = setParts[0];
   const rarity = formatRarity(card?.rarity || setParts[1]);
 
   const [isHovered, setIsHovered] = useState(false);
   const [transformStyle, setTransformStyle] = useState("rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)");
   const [foilPos, setFoilPos] = useState({ x: "50%", y: "50%" });
-  const onMouseMove = (e) => {
+  const onMouseMove = useCallback((e) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -318,11 +336,16 @@ function VaultCard({ coll, onOpenAnalytics, onAdd, onDelete, isPortfolio, quanti
     const rotateY = ((x - centerX) / centerX) * maxTilt;
     setTransformStyle(`rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`);
     setFoilPos({ x: `${(x / rect.width) * 100}%`, y: `${(y / rect.height) * 100}%` });
-  };
-  const onMouseLeave = () => {
+  }, []);
+  const onMouseLeave = useCallback(() => {
     setIsHovered(false);
     setTransformStyle("rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)");
-  };
+  }, []);
+
+  const cardImageFilter = isHovered ? "drop-shadow(0 15px 20px rgba(0,0,0,0.5))" : "drop-shadow(0 8px 12px rgba(0,0,0,0.3))";
+  const cardImageTransform = isHovered ? "translateZ(20px)" : "translateZ(0px)";
+  const foilOpacity = isHovered ? 0.25 : 0;
+  const foilBg = `radial-gradient(circle at ${foilPos.x} ${foilPos.y}, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 60%)`;
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="relative w-full h-full" style={{ perspective: "1500px" }}>
@@ -336,9 +359,9 @@ function VaultCard({ coll, onOpenAnalytics, onAdd, onDelete, isPortfolio, quanti
       >
         <div className="relative p-3 md:p-4 bg-[#1a1a1a] flex-1 flex items-center justify-center overflow-hidden min-h-[160px] md:min-h-[220px]">
           {card?.image_url && (
-            <img src={card.image_url} alt={card?.name} className="w-full max-w-[140px] md:max-w-[180px] object-contain relative z-10 transition-all duration-500 ease-out" style={{ transform: isHovered ? "translateZ(20px)" : "translateZ(0px)", filter: isHovered ? "drop-shadow(0 15px 20px rgba(0,0,0,0.5))" : "drop-shadow(0 8px 12px rgba(0,0,0,0.3))" }} />
+            <img src={card.image_url} alt={card?.name} className="w-full max-w-[140px] md:max-w-[180px] object-contain relative z-10 transition-all duration-500 ease-out" style={{ transform: cardImageTransform, filter: cardImageFilter }} />
           )}
-          <div className="absolute inset-0 pointer-events-none z-20 mix-blend-overlay transition-opacity duration-500" style={{ opacity: isHovered ? 0.25 : 0, background: `radial-gradient(circle at ${foilPos.x} ${foilPos.y}, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0) 60%)` }} />
+          <div className="absolute inset-0 pointer-events-none z-20 mix-blend-overlay transition-opacity duration-500" style={{ opacity: foilOpacity, background: foilBg }} />
           {inPortfolio && !isPortfolio && (
             <div className="absolute top-2.5 left-2.5 md:top-3 md:left-3 bg-teal-500 text-black text-[9px] md:text-[10px] font-black uppercase tracking-widest px-2 py-0.5 md:py-1 rounded shadow-lg flex items-center gap-1 z-30 transition-transform duration-500" style={{ transform: isHovered ? "translateZ(10px)" : "translateZ(0)" }}>
               <CheckCircle size={10} className="md:w-3 md:h-3" /> Owned
@@ -394,6 +417,8 @@ function SearchPalette({ open, onClose, onAdd, onOpenAnalytics }) {
     return () => { active = false; };
   }, [debounced, open]);
 
+  useEffect(() => { if (open) setQuery(""); }, [open]);
+
   if (!open) return null;
   return (
     <motion.div
@@ -402,7 +427,6 @@ function SearchPalette({ open, onClose, onAdd, onOpenAnalytics }) {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
       className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl flex flex-col"
-      onMouseDown={e => e.target === e.currentTarget && onClose()}
     >
       <div className="flex flex-col h-full pt-safe">
         <div className="px-4 md:px-8 pt-4 md:pt-8">
@@ -433,10 +457,15 @@ function SearchPalette({ open, onClose, onAdd, onOpenAnalytics }) {
                   <Search size={40} className="text-slate-700 mx-auto mb-3" />
                   <p className="text-slate-500 text-sm font-semibold">No cards found</p>
                 </div>
+              ) : results.length === 0 && !debounced ? (
+                <div className="col-span-full py-16 text-center">
+                  <Search size={40} className="text-slate-700 mx-auto mb-3" />
+                  <p className="text-slate-500 text-sm font-semibold">Type to search cards</p>
+                </div>
               ) : (
                 results.map((item) => (
                   <div key={item.id} onClick={() => { onOpenAnalytics(item); }} className="p-2 md:p-2.5 rounded-xl md:rounded-2xl border border-white/[0.06] active:bg-teal-500/10 md:hover:bg-teal-500/10 cursor-pointer text-center relative group transition-colors">
-                    {item.image_url && <img src={item.image_url} className="w-full aspect-[3/4] object-contain mb-1.5 md:mb-2" />}
+                    {item.image_url && <img src={item.image_url} className="w-full aspect-[3/4] object-contain mb-1.5 md:mb-2" loading="lazy" />}
                     <div className="text-[9px] md:text-[10px] text-white font-bold truncate">{item.name}</div>
                     <div className="text-[8px] md:text-[9px] text-teal-400 mt-0.5 md:mt-1">${formatMoney(safePrice(item.price))}</div>
                     <div onClick={(e) => { e.stopPropagation(); onAdd(item); }} className="absolute top-2 right-2 bg-teal-500 text-black rounded-full p-1.5 md:opacity-0 md:group-hover:opacity-100 transition-all active:scale-90 md:hover:scale-110 shadow-lg">
@@ -484,19 +513,21 @@ function AssetAnalyticsModal({ coll, onClose, onAdd, onDelete, isPortfolio }) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-[110] bg-black/95 backdrop-blur-xl overflow-y-auto custom-scrollbar"
-      onMouseDown={e => e.target === e.currentTarget && onClose()}
     >
-      <div className="min-h-full md:flex md:items-center md:justify-center md:p-4" onMouseDown={e => e.stopPropagation()}>
+      <div className="min-h-full md:flex md:items-center md:justify-center md:p-4" onMouseDown={e => e.target === e.currentTarget && onClose()}>
         <motion.div
           initial={{ y: 30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ type: "spring", damping: 28, stiffness: 300, delay: 0.05 }}
           className="w-full md:max-w-[1100px] bg-[#0f0f0f] md:border md:border-white/[0.08] md:rounded-[32px] shadow-2xl overflow-hidden flex flex-col"
         >
-          <div className="sticky top-0 z-20 flex items-center justify-between px-5 pt-safe md:hidden bg-[#0f0f0f]/90 backdrop-blur-xl border-b border-white/[0.04]">
-            <button onClick={onClose} className="text-teal-400 font-bold text-sm py-3 active:opacity-70">Back</button>
-            <span className="text-white font-bold text-sm truncate max-w-[50%]">{card.name}</span>
-            <div className="w-12" />
+          <div className="sticky top-0 z-20 flex items-center justify-between px-4 md:hidden bg-[#0f0f0f]/90 backdrop-blur-xl border-b border-white/[0.04] h-14">
+            <button onClick={onClose} className="flex items-center gap-1.5 text-teal-400 font-bold text-base py-3 px-2 -ml-2 active:opacity-70 min-h-[44px]">
+              <ChevronLeft size={22} />
+              <span>Back</span>
+            </button>
+            <span className="text-white font-bold text-sm truncate max-w-[45%]">{card.name}</span>
+            <div className="w-[60px]" />
           </div>
           <button onClick={onClose} className="hidden md:flex fixed top-6 right-6 z-[99999] bg-white/10 hover:bg-white/20 text-white p-4 rounded-full transition-all border border-white/20 shadow-2xl cursor-pointer">
             <X size={24} />
@@ -508,7 +539,7 @@ function AssetAnalyticsModal({ coll, onClose, onAdd, onDelete, isPortfolio }) {
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
               <div className="relative bg-[#161616] rounded-2xl md:rounded-xl p-5 md:p-6 border border-white/[0.06] flex flex-col items-center justify-center overflow-hidden">
-                {card.image_url && <img src={card.image_url} className="w-full max-w-[200px] md:max-w-[300px] rounded-xl shadow-2xl mb-4 md:mb-6 relative z-10" />}
+                {card.image_url && <img src={card.image_url} className="w-full max-w-[200px] md:max-w-[300px] rounded-xl shadow-2xl mb-4 md:mb-6 relative z-10" loading="lazy" />}
                 {!isPortfolio ? (
                   <button onClick={() => { onAdd(card); onClose(); }} className="w-full py-4 md:py-3.5 bg-teal-500 text-black font-bold rounded-xl active:bg-teal-600 md:hover:bg-teal-400 transition-colors relative z-10 shadow-[0_0_20px_rgba(20,184,166,0.3)]">Add to Portfolio</button>
                 ) : (
@@ -529,12 +560,12 @@ function AssetAnalyticsModal({ coll, onClose, onAdd, onDelete, isPortfolio }) {
                     <div className="flex items-center justify-between w-full md:w-auto gap-3">
                       <div className="flex bg-black rounded-lg p-0.5 md:p-1 border border-white/10">
                         {['Raw', 'PSA 9', 'PSA 10'].map(g => (
-                          <button key={g} onClick={() => setGrade(g)} className={`px-2.5 md:px-3 py-1.5 md:py-1 text-[10px] uppercase tracking-widest rounded-md font-bold transition-colors ${grade === g ? 'bg-teal-500 text-black' : 'text-slate-500 active:text-white md:hover:text-white'}`}>{g}</button>
+                          <button key={g} onClick={() => setGrade(g)} className={`px-2.5 md:px-3 py-1.5 md:py-1 text-[10px] uppercase tracking-widest rounded-md font-bold transition-colors min-h-[36px] ${grade === g ? 'bg-teal-500 text-black' : 'text-slate-500 active:text-white md:hover:text-white'}`}>{g}</button>
                         ))}
                       </div>
                       <div className="flex gap-0.5 md:gap-1 bg-black rounded-lg p-0.5 md:p-1">
                         {['1W', '1M', '1Y'].map(t => (
-                          <button key={t} onClick={() => setTimeframe(t)} className={`px-2.5 md:px-3 py-1.5 md:py-1 text-xs rounded-md font-bold transition-colors ${timeframe === t ? 'bg-[#333] text-white' : 'text-slate-500 active:text-white md:hover:text-white'}`}>{t}</button>
+                          <button key={t} onClick={() => setTimeframe(t)} className={`px-2.5 md:px-3 py-1.5 md:py-1 text-xs rounded-md font-bold transition-colors min-h-[36px] ${timeframe === t ? 'bg-[#333] text-white' : 'text-slate-500 active:text-white md:hover:text-white'}`}>{t}</button>
                         ))}
                       </div>
                     </div>
@@ -556,15 +587,15 @@ function AssetAnalyticsModal({ coll, onClose, onAdd, onDelete, isPortfolio }) {
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2.5 md:gap-4">
-                  <div className="bg-[#161616] border border-white/[0.06] rounded-2xl p-3.5 md:p-4 text-center flex flex-col justify-center">
+                  <div className="bg-[#161616] border border-white/[0.06] rounded-2xl p-3.5 md:p-4 text-center flex flex-col justify-center min-h-[64px]">
                     <div className="text-slate-500 text-[9px] md:text-[10px] font-bold uppercase tracking-widest mb-1">Condition</div>
                     <div className="text-teal-400 font-bold text-[11px] md:text-xs">{grade}</div>
                   </div>
-                  <div onClick={() => window.open(`https://www.tcgplayer.com/search/all/product?q=${encodeURIComponent(card.name)}`, "_blank")} className="bg-teal-500/10 border border-teal-500/20 active:bg-teal-500/20 md:hover:bg-teal-500/20 rounded-2xl p-3.5 md:p-4 flex flex-col items-center justify-center cursor-pointer transition-colors text-teal-400">
+                  <div onClick={() => window.open(`https://www.tcgplayer.com/search/all/product?q=${encodeURIComponent(card.name)}`, "_blank")} className="bg-teal-500/10 border border-teal-500/20 active:bg-teal-500/20 md:hover:bg-teal-500/20 rounded-2xl p-3.5 md:p-4 flex flex-col items-center justify-center cursor-pointer transition-colors text-teal-400 min-h-[64px]">
                     <ShoppingBag size={18} className="mb-1" />
                     <div className="font-bold text-[10px] md:text-xs">TCGPlayer</div>
                   </div>
-                  <div onClick={() => window.open(`https://www.psacard.com/search#q=${encodeURIComponent(card.name)}`, "_blank")} className="bg-rose-500/10 border border-rose-500/20 active:bg-rose-500/20 md:hover:bg-rose-500/20 rounded-2xl p-3.5 md:p-4 flex flex-col items-center justify-center cursor-pointer transition-colors text-rose-400">
+                  <div onClick={() => window.open(`https://www.psacard.com/search#q=${encodeURIComponent(card.name)}`, "_blank")} className="bg-rose-500/10 border border-rose-500/20 active:bg-rose-500/20 md:hover:bg-rose-500/20 rounded-2xl p-3.5 md:p-4 flex flex-col items-center justify-center cursor-pointer transition-colors text-rose-400 min-h-[64px]">
                     <ExternalLink size={18} className="mb-1" />
                     <div className="font-bold text-[10px] md:text-xs">PSA Grade</div>
                   </div>
@@ -611,10 +642,10 @@ function MainApp() {
     setExplorePage(1);
   }, [activeTab]);
 
-  const showToast = (message, type = "success") => {
+  const showToast = useCallback((message, type = "success") => {
     setToast({ visible: true, message, type });
     setTimeout(() => setToast({ visible: false, message: "", type: "success" }), 3000);
-  };
+  }, []);
 
   const fetchData = useCallback(async (pageToLoad = 1, append = false, currentRarity = "All", currentSort = "Newest") => {
     if (!append) setLoading(true); else setLoadingMore(true);
@@ -639,14 +670,14 @@ function MainApp() {
     } finally { setLoading(false); setLoadingMore(false); }
   }, [navigate]);
 
-  useEffect(() => { api.get("/market-movers").then(r => setMarketMovers(r.data || [])).catch(e => console.log(e)); }, []);
+  useEffect(() => { api.get("/market-movers").then(r => setMarketMovers(r.data || [])).catch(() => {}); }, []);
   useEffect(() => { setExplorePage(1); fetchData(1, false, rarityFilter, sortBy); }, [rarityFilter, sortBy, fetchData]);
 
-  const handleLoadMore = () => {
+  const handleLoadMore = useCallback(() => {
     const nextPage = explorePage + 1; setExplorePage(nextPage); fetchData(nextPage, true, rarityFilter, sortBy);
-  };
+  }, [explorePage, rarityFilter, sortBy, fetchData]);
 
-  const handleAdd = async (card) => {
+  const handleAdd = useCallback(async (card) => {
     try {
       const targetId = card.pokemon_tcg_id || card.id;
       const token = localStorage.getItem("token");
@@ -658,11 +689,12 @@ function MainApp() {
       if (!response.ok) throw new Error("Validation Failed");
       await fetchData(1, false, rarityFilter, sortBy);
       showToast(`${card.name} added to vault!`, "success");
-    } catch (err) { showToast("Error adding card.", "error"); }
-  };
+    } catch { showToast("Error adding card.", "error"); }
+  }, [navigate, fetchData, rarityFilter, sortBy, showToast]);
 
-  const confirmDelete = (coll) => setConfirmDialog({ visible: true, coll });
-  const executeDelete = async () => {
+  const confirmDelete = useCallback((coll) => setConfirmDialog({ visible: true, coll }), []);
+
+  const executeDelete = useCallback(async () => {
     if (!confirmDialog.coll) return;
     const instanceId = confirmDialog.coll.instance_ids ? confirmDialog.coll.instance_ids[0] : confirmDialog.coll.id;
     try {
@@ -671,9 +703,9 @@ function MainApp() {
       setConfirmDialog({ visible: false, coll: null });
       showToast("Card removed.", "success");
     } catch { showToast("Error removing card.", "error"); }
-  };
+  }, [confirmDialog.coll, fetchData, rarityFilter, sortBy, showToast]);
 
-  const handleExportCSV = () => {
+  const handleExportCSV = useCallback(() => {
     let csvContent = "data:text/csv;charset=utf-8,Card Name,Set,Rarity,Quantity,Price (ea),Total Value\n";
     groupedPortfolio.forEach(item => {
       const c = item.card; const price = safePrice(c.price); const qty = item.quantity;
@@ -685,7 +717,7 @@ function MainApp() {
     link.setAttribute("download", `Pokemon_Portfolio_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
     showToast("Portfolio exported successfully!", "success");
-  };
+  }, [showToast]);
 
   const groupedPortfolio = useMemo(() => {
     const map = new Map();
@@ -710,17 +742,37 @@ function MainApp() {
   }, [groupedPortfolio]);
 
   const ownedIds = useMemo(() => new Set(portfolioCards.map(c => c.card?.pokemon_tcg_id)), [portfolioCards]);
-  let currentCards = activeTab === "explore" ? [...exploreCards] : [...groupedPortfolio];
-  if (activeTab === "portfolio") {
-    if (sortBy === "Price: High to Low") currentCards.sort((a, b) => safePrice((b.card || b).price) - safePrice((a.card || a).price));
-    else if (sortBy === "Price: Low to High") currentCards.sort((a, b) => safePrice((a.card || a).price) - safePrice((b.card || b).price));
-  }
+
+  const sortedMarketMovers = useMemo(() => {
+    return [...marketMovers].map(g => {
+      const c = g.card || g;
+      const stat = getChartDataFromHistory(c.history, "1M", "Raw");
+      return { ...g, computedStat: stat };
+    }).sort((a, b) => {
+      const valA = (a.computedStat.isUp ? 1 : -1) * parseFloat(a.computedStat.percent);
+      const valB = (b.computedStat.isUp ? 1 : -1) * parseFloat(b.computedStat.percent);
+      return valB - valA;
+    });
+  }, [marketMovers]);
+
+  const currentCards = useMemo(() => {
+    let cards = activeTab === "explore" ? [...exploreCards] : [...groupedPortfolio];
+    if (activeTab === "portfolio") {
+      if (sortBy === "Price: High to Low") cards.sort((a, b) => safePrice((b.card || b).price) - safePrice((a.card || a).price));
+      else if (sortBy === "Price: Low to High") cards.sort((a, b) => safePrice((a.card || a).price) - safePrice((b.card || b).price));
+    }
+    return cards;
+  }, [activeTab, exploreCards, groupedPortfolio, sortBy]);
+
+  const handleDismissToast = useCallback(() => setToast({ visible: false, message: "", type: "success" }), []);
+
+  const handleDismissConfirm = useCallback(() => setConfirmDialog({ visible: false, coll: null }), []);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white font-sans selection:bg-teal-500/30">
+    <div className="min-h-[100dvh] bg-[#0a0a0a] text-white font-sans selection:bg-teal-500/30">
       <AnimatePresence>
         {toast.visible && (
-          <div className={`fixed top-6 md:top-8 left-1/2 -translate-x-1/2 z-[999999] px-5 py-2.5 md:px-6 md:py-3 rounded-full flex items-center gap-2.5 shadow-2xl border backdrop-blur-xl font-bold text-sm transition-opacity duration-300 ${toast.type === 'error' ? 'bg-rose-500/10 border-rose-500 text-rose-500' : 'bg-teal-500/10 border-teal-500 text-teal-400'}`}>
+          <div className={`fixed top-4 md:top-8 left-1/2 -translate-x-1/2 z-[999999] px-5 py-2.5 md:px-6 md:py-3 rounded-full flex items-center gap-2.5 shadow-2xl border backdrop-blur-xl font-bold text-sm transition-opacity duration-300 ${toast.type === 'error' ? 'bg-rose-500/10 border-rose-500 text-rose-500' : 'bg-teal-500/10 border-teal-500 text-teal-400'}`}>
             {toast.type === 'error' ? <X size={15} /> : <CheckCircle size={15} />}
             {toast.message}
           </div>
@@ -729,7 +781,7 @@ function MainApp() {
 
       <AnimatePresence>
         {confirmDialog.visible && (
-          <div className="fixed inset-0 z-[999999] flex items-end md:items-center justify-center bg-black/80 backdrop-blur-sm" onMouseDown={() => setConfirmDialog({ visible: false, coll: null })}>
+          <div className="fixed inset-0 z-[999999] flex items-end md:items-center justify-center bg-black/80 backdrop-blur-sm" onMouseDown={handleDismissConfirm}>
             <motion.div
               initial={{ y: 60, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
@@ -741,7 +793,7 @@ function MainApp() {
               <h3 className="text-lg md:text-xl font-black text-white mb-2">Remove Asset?</h3>
               <p className="text-sm text-slate-400 mb-6 md:mb-8">Remove 1 copy of <span className="text-white font-bold">{confirmDialog.coll?.card?.name || confirmDialog.coll?.name}</span>?</p>
               <div className="flex gap-3 md:gap-4">
-                <button className="flex-1 py-3.5 md:py-3 bg-white/5 active:bg-white/10 md:hover:bg-white/10 rounded-xl text-white font-bold transition-colors" onClick={() => setConfirmDialog({ visible: false, coll: null })}>Cancel</button>
+                <button className="flex-1 py-3.5 md:py-3 bg-white/5 active:bg-white/10 md:hover:bg-white/10 rounded-xl text-white font-bold transition-colors" onClick={handleDismissConfirm}>Cancel</button>
                 <button className="flex-1 py-3.5 md:py-3 bg-rose-500 active:bg-rose-600 md:hover:bg-rose-600 rounded-xl text-white font-bold transition-colors" onClick={executeDelete}>Remove</button>
               </div>
             </motion.div>
@@ -750,7 +802,7 @@ function MainApp() {
       </AnimatePresence>
 
       <DesktopNavbar onLogout={() => { localStorage.removeItem("token"); navigate("/login") }} onOpenPalette={() => setPaletteOpen(true)} userEmail={getEmailFromToken()} activeTab={activeTab} setActiveTab={setActiveTab} />
-      <MobileHeader onOpenPalette={() => setPaletteOpen(true)} />
+      <MobileHeader onLogout={() => { localStorage.removeItem("token"); navigate("/login") }} userEmail={getEmailFromToken()} />
       <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} onOpenPalette={() => setPaletteOpen(true)} />
 
       <AnimatePresence>
@@ -771,22 +823,15 @@ function MainApp() {
             </div>
           )}
 
-          {activeTab === "explore" && marketMovers.length > 0 && (
+          {activeTab === "explore" && sortedMarketMovers.length > 0 && (
             <div className="mb-6 md:mb-10">
               <div className="flex items-center gap-2 text-rose-500 font-bold mb-3 md:mb-4 text-sm md:text-base">
                 <Flame size={18} /> Market Movers
               </div>
               <div className="flex md:grid md:grid-cols-4 gap-3 md:gap-4 overflow-x-auto custom-scrollbar pb-2 -mx-4 px-4 md:mx-0 md:px-0 snap-x snap-mandatory">
-                {[...marketMovers].map(g => {
-                  const c = g.card || g; const stat = getChartDataFromHistory(c.history, "1M", "Raw");
-                  return { ...g, computedStat: stat };
-                }).sort((a, b) => {
-                  const valA = (a.computedStat.isUp ? 1 : -1) * parseFloat(a.computedStat.percent);
-                  const valB = (b.computedStat.isUp ? 1 : -1) * parseFloat(b.computedStat.percent);
-                  return valB - valA;
-                }).map((g, idx) => (
+                {sortedMarketMovers.map((g, idx) => (
                   <div key={`gainer-${idx}`} onClick={() => setSelectedColl(g)} className="bg-gradient-to-tr from-[#161616] to-rose-500/10 border border-white/[0.06] active:border-rose-500/30 md:hover:border-rose-500/30 p-3.5 md:p-4 rounded-2xl cursor-pointer transition-colors flex items-center gap-3 md:gap-4 min-w-[200px] md:min-w-0 snap-start">
-                    <img src={(g.card || g).image_url} className="w-10 h-14 md:w-12 md:h-16 object-contain drop-shadow-md" />
+                    <img src={(g.card || g).image_url} className="w-10 h-14 md:w-12 md:h-16 object-contain drop-shadow-md" loading="lazy" />
                     <div className="overflow-hidden flex-1 min-w-0">
                       <div className="text-white text-xs font-bold truncate">{(g.card || g).name}</div>
                       <div className="text-[9px] md:text-[10px] text-slate-500 truncate mb-0.5 md:mb-1">{(g.card || g).set_name?.split(" • ")[0]}</div>
@@ -879,7 +924,7 @@ function MainApp() {
                             ? ["Price: High to Low", "Price: Low to High"]
                             : ["Newest", "Price: High to Low", "Price: Low to High", "Name: A-Z"]
                           ).map(opt => (
-                            <div key={opt} onClick={() => { setSortBy(opt); setSortOpen(false); }} className="px-5 md:px-6 py-3 md:py-3 active:bg-white/5 md:hover:bg-white/5 cursor-pointer text-sm text-slate-300 font-bold transition-colors">{opt}</div>
+                            <div key={opt} onClick={() => { setSortBy(opt); setSortOpen(false); }} className="px-5 md:px-6 py-3 active:bg-white/5 md:hover:bg-white/5 cursor-pointer text-sm text-slate-300 font-bold transition-colors">{opt}</div>
                           ))}
                         </div>
                       </>
