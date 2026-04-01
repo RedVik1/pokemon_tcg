@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import api, { login } from "./api";
 import {
@@ -92,13 +92,14 @@ function EliteLoginPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (localStorage.getItem("token")) { navigate("/dashboard", { replace: true }); return; }
     if (isLoginMode && !email) {
       setEmail("test_demo@example.com");
       setPassword("password123");
     } else if (!isLoginMode) {
       setEmail(""); setPassword(""); setError("");
     }
-  }, [isLoginMode]);
+  }, [isLoginMode, email]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -358,8 +359,12 @@ function VaultCard({ coll, onOpenAnalytics, onAdd, onDelete, isPortfolio, quanti
         className="group bg-[#141414] rounded-[20px] md:rounded-2xl border border-white/[0.06] overflow-hidden cursor-pointer shadow-xl flex flex-col h-full relative z-10 active:scale-[0.98] transition-transform md:active:scale-100"
       >
         <div className="relative p-3 md:p-4 bg-[#1a1a1a] flex-1 flex items-center justify-center overflow-hidden min-h-[160px] md:min-h-[220px]">
-          {card?.image_url && (
+          {card?.image_url ? (
             <img src={card.image_url} alt={card?.name} className="w-full max-w-[140px] md:max-w-[180px] object-contain relative z-10 transition-all duration-500 ease-out" style={{ transform: cardImageTransform, filter: cardImageFilter }} />
+          ) : (
+            <div className="w-full max-w-[140px] md:max-w-[180px] aspect-[3/4] flex items-center justify-center relative z-10">
+              <Box size={40} className="text-slate-700" />
+            </div>
           )}
           <div className="absolute inset-0 pointer-events-none z-20 mix-blend-overlay transition-opacity duration-500" style={{ opacity: foilOpacity, background: foilBg }} />
           {inPortfolio && !isPortfolio && (
@@ -500,6 +505,9 @@ function AssetAnalyticsModal({ coll, onClose, onAdd, onDelete, isPortfolio }) {
   const basePrice = safePrice(card.price);
   const [timeframe, setTimeframe] = useState("1M");
   const [grade, setGrade] = useState("Raw");
+
+  useEffect(() => { setTimeframe("1M"); setGrade("Raw"); }, [coll]);
+
   const gradeMultiplier = grade === "PSA 10" ? 4.2 : grade === "PSA 9" ? 1.8 : 1.0;
   const { data, percent, isUp } = useMemo(() => getChartDataFromHistory(card?.history, timeframe, grade), [card?.history, timeframe, grade]);
   const currentPrice = basePrice * gradeMultiplier;
@@ -624,16 +632,25 @@ function MainApp() {
   const [sortOpen, setSortOpen] = useState(false);
   const [rarityFilter, setRarityFilter] = useState("All");
   const [raritySheetOpen, setRaritySheetOpen] = useState(false);
-  const [toast, setToast] = useState({ visible: false, message: "", type: "success" });
   const [confirmDialog, setConfirmDialog] = useState({ visible: false, coll: null });
+  const confirmDialogRef = useRef(null);
+  useEffect(() => { confirmDialogRef.current = confirmDialog.coll; }, [confirmDialog.coll]);
   const [marketMovers, setMarketMovers] = useState([]);
+  const [toast, setToast] = useState({ visible: false, message: "", type: "success" });
+  const toastTimerRef = useRef(null);
 
   useEffect(() => {
-    const handleKeyDown = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setPaletteOpen(true); }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    if (!localStorage.getItem("token")) navigate("/login", { replace: true });
+  }, [navigate]);
+
+  const showToast = useCallback((message, type = "success") => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast({ visible: true, message, type });
+    toastTimerRef.current = setTimeout(() => setToast({ visible: false, message: "", type: "success" }), 3000);
+  }, []);
+
+  useEffect(() => {
+    return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); if (abortRef.current) abortRef.current.abort(); };
   }, []);
 
   useEffect(() => {
@@ -642,20 +659,22 @@ function MainApp() {
     setExplorePage(1);
   }, [activeTab]);
 
-  const showToast = useCallback((message, type = "success") => {
-    setToast({ visible: true, message, type });
-    setTimeout(() => setToast({ visible: false, message: "", type: "success" }), 3000);
-  }, []);
+  const abortRef = useRef(null);
 
   const fetchData = useCallback(async (pageToLoad = 1, append = false, currentRarity = "All", currentSort = "Newest") => {
+    if (abortRef.current) abortRef.current.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     if (!append) setLoading(true); else setLoadingMore(true);
     try {
       const rarityQuery = currentRarity === "All" ? "" : `&rarity=${encodeURIComponent(currentRarity)}`;
       const sortQuery = `&sort_by=${encodeURIComponent(currentSort)}`;
       const [s, c, exp] = await Promise.all([
-        api.get("/portfolio/stats"), api.get("/collections/me"),
-        api.get(`/search?query=&page=${pageToLoad}&limit=48${rarityQuery}${sortQuery}`)
+        api.get("/portfolio/stats", { signal: controller.signal }),
+        api.get("/collections/me", { signal: controller.signal }),
+        api.get(`/search?query=&page=${pageToLoad}&limit=48${rarityQuery}${sortQuery}`, { signal: controller.signal })
       ]);
+      if (controller.signal.aborted) return;
       setStats(s.data); setPortfolioCards(c.data || []);
       const newExplore = (exp.data || []).map(card => ({ id: `exp-${card.id}-${pageToLoad}`, card, condition: "Market" }));
       if (append) {
@@ -666,11 +685,14 @@ function MainApp() {
         });
       } else { setExploreCards(newExplore); }
     } catch (error) {
+      if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED' || controller.signal.aborted) return;
       if (error.response && error.response.status === 401) { localStorage.removeItem("token"); navigate("/login"); }
-    } finally { setLoading(false); setLoadingMore(false); }
+    } finally {
+      if (!controller.signal.aborted) { setLoading(false); setLoadingMore(false); }
+    }
   }, [navigate]);
 
-  useEffect(() => { api.get("/market-movers").then(r => setMarketMovers(r.data || [])).catch(() => {}); }, []);
+  useEffect(() => { api.get("/market-movers").then(r => setMarketMovers(r.data || [])).catch(() => setMarketMovers([])); }, []);
   useEffect(() => { setExplorePage(1); fetchData(1, false, rarityFilter, sortBy); }, [rarityFilter, sortBy, fetchData]);
 
   const handleLoadMore = useCallback(() => {
@@ -695,15 +717,28 @@ function MainApp() {
   const confirmDelete = useCallback((coll) => setConfirmDialog({ visible: true, coll }), []);
 
   const executeDelete = useCallback(async () => {
-    if (!confirmDialog.coll) return;
-    const instanceId = confirmDialog.coll.instance_ids ? confirmDialog.coll.instance_ids[0] : confirmDialog.coll.id;
+    const coll = confirmDialogRef.current;
+    if (!coll) return;
+    const instanceId = coll.instance_ids ? coll.instance_ids[0] : coll.id;
     try {
       await api.delete(`/collections/${instanceId}`);
       await fetchData(1, false, rarityFilter, sortBy);
       setConfirmDialog({ visible: false, coll: null });
       showToast("Card removed.", "success");
     } catch { showToast("Error removing card.", "error"); }
-  }, [confirmDialog.coll, fetchData, rarityFilter, sortBy, showToast]);
+  }, [fetchData, rarityFilter, sortBy, showToast]);
+
+  const groupedPortfolio = useMemo(() => {
+    const map = new Map();
+    portfolioCards.forEach(item => {
+      const id = item.card.pokemon_tcg_id;
+      if (!map.has(id)) map.set(id, { ...item, quantity: item.quantity || 1, instance_ids: [item.id] });
+      else {
+        const existing = map.get(id); existing.quantity += (item.quantity || 1); existing.instance_ids.push(item.id);
+      }
+    });
+    return Array.from(map.values());
+  }, [portfolioCards]);
 
   const handleExportCSV = useCallback(() => {
     let csvContent = "data:text/csv;charset=utf-8,Card Name,Set,Rarity,Quantity,Price (ea),Total Value\n";
@@ -717,19 +752,7 @@ function MainApp() {
     link.setAttribute("download", `Pokemon_Portfolio_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
     showToast("Portfolio exported successfully!", "success");
-  }, [showToast]);
-
-  const groupedPortfolio = useMemo(() => {
-    const map = new Map();
-    portfolioCards.forEach(item => {
-      const id = item.card.pokemon_tcg_id;
-      if (!map.has(id)) map.set(id, { ...item, quantity: item.quantity || 1, instance_ids: [item.id] });
-      else {
-        const existing = map.get(id); existing.quantity += (item.quantity || 1); existing.instance_ids.push(item.id);
-      }
-    });
-    return Array.from(map.values());
-  }, [portfolioCards]);
+  }, [groupedPortfolio, showToast]);
 
   const portfolioDistribution = useMemo(() => {
     const dist = {};
