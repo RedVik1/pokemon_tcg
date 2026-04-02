@@ -190,23 +190,11 @@ async def delete_from_vault(collection_id: int, current_user: User = Depends(get
     return Response(status_code=204)
 
 # ==========================================
-# 🔥 РАЗДАЧА ФРОНТЕНДА (REACT)
+# SERVE FRONTEND (REACT)
 # ==========================================
 
-# 1. Раздаем картинки, CSS и JS из папки dist/assets
-app.mount("/assets", StaticFiles(directory="dist/assets"), name="assets")
-
-# 2. Все остальные запросы отдаем React-роутеру (index.html)
-@app.get("/{catchall:path}")
-async def serve_react_app(catchall: str):
-    # Если запрос начинается с api/ или это доки - не трогаем (хотя у тебя пути без /api, но оставим для защиты)
-    if catchall in ["docs", "openapi.json"]:
-        raise HTTPException(status_code=404, detail="Not Found")
-        
-    index_path = os.path.join("dist", "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    return {"error": "Фронтенд не найден! Папка dist не загрузилась на сервер."}
+# Serve all static files from dist/ with SPA fallback to index.html
+app.mount("/", StaticFiles(directory="dist", html=True, check_dir=False), name="frontend")
 
 if __name__ == "__main__":
     import uvicorn

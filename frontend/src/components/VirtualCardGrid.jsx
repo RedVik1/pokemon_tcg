@@ -1,6 +1,4 @@
-import React, { useRef, useMemo } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
-import { useColumns } from "../utils/hooks";
+import React from "react";
 import VaultCard from "./VaultCard";
 
 export default function VirtualCardGrid({
@@ -16,98 +14,25 @@ export default function VirtualCardGrid({
   loadingMore,
   showLoadMore,
 }) {
-  const parentRef = useRef(null);
-  const columns = useColumns();
-
-  const rows = useMemo(() => {
-    const result = [];
-    for (let i = 0; i < cards.length; i += columns) {
-      result.push(cards.slice(i, i + columns));
-    }
-    return result;
-  }, [cards, columns]);
-
-  const virtualizer = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => {
-      if (typeof document === "undefined") return null;
-      return document.scrollingElement || document.documentElement;
-    },
-    estimateSize: () => {
-      if (typeof window === "undefined") return 380;
-      const w = parentRef.current?.clientWidth || window.innerWidth * 0.9;
-      const isMd = window.matchMedia("(min-width: 768px)").matches;
-      const gap = isMd ? 48 : 12;
-      const colWidth = (w - gap * (columns - 1)) / columns;
-      const imageHeight = colWidth * (4 / 3);
-      return Math.round(imageHeight + 120);
-    },
-    overscan: 4,
-    scrollMargin: () => {
-      if (!parentRef.current) return 0;
-      return parentRef.current.getBoundingClientRect().top + window.scrollY;
-    },
-  });
-
-  const gapClass = "gap-3 md:gap-6 lg:gap-8";
-  const colClass = columns === 5
-    ? "grid-cols-5"
-    : columns === 4
-      ? "grid-cols-4"
-      : columns === 3
-        ? "grid-cols-3"
-        : "grid-cols-2";
-
   return (
-    <div ref={parentRef}>
-      <div
-        style={{
-          height: `${virtualizer.getTotalSize()}px`,
-          width: "100%",
-          position: "relative",
-        }}
-      >
-        {virtualizer.getVirtualItems().map((virtualRow) => {
-          const row = rows[virtualRow.index];
-          if (!row) return null;
+    <div>
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 md:gap-6 lg:gap-8">
+        {cards.map((c) => {
+          const cardObj = c.card || c;
+          const targetId = cardObj.pokemon_tcg_id || cardObj.id;
           return (
-            <div
-              key={virtualRow.key}
-              data-index={virtualRow.index}
-              ref={virtualizer.measureElement}
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                transform: `translateY(${virtualRow.start}px)`,
-              }}
-            >
-              <div className={`grid ${colClass} ${gapClass}`}>
-                {row.map((c) => {
-                  const cardObj = c.card || c;
-                  const targetId = cardObj.pokemon_tcg_id || cardObj.id;
-                  return (
-                    <VaultCard
-                      key={c.id || targetId}
-                      coll={c}
-                      onOpenAnalytics={onOpenAnalytics}
-                      onAdd={onAdd}
-                      onDelete={onDelete}
-                      isPortfolio={isPortfolio}
-                      quantity={c.quantity}
-                      inPortfolio={ownedIds.has(targetId)}
-                      isAdding={busyCardId === targetId && busyAction === "add"}
-                      isDeleting={busyCardId === targetId && busyAction === "delete"}
-                    />
-                  );
-                })}
-                {row.length < columns &&
-                  Array.from({ length: columns - row.length }).map((_, i) => (
-                    <div key={`spacer-${i}`} />
-                  ))}
-              </div>
-            </div>
+            <VaultCard
+              key={c.id || targetId}
+              coll={c}
+              onOpenAnalytics={onOpenAnalytics}
+              onAdd={onAdd}
+              onDelete={onDelete}
+              isPortfolio={isPortfolio}
+              quantity={c.quantity}
+              inPortfolio={ownedIds.has(targetId)}
+              isAdding={busyCardId === targetId && busyAction === "add"}
+              isDeleting={busyCardId === targetId && busyAction === "delete"}
+            />
           );
         })}
       </div>
