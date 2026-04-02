@@ -34,8 +34,11 @@ import KeyboardShortcutsModal, { useKeyboardShortcuts } from "../components/Keyb
 function usePullToRefresh(onRefresh) {
   const [pulling, setPulling] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
-  const startY = useRef(0);
   const pullingRef = useRef(false);
+  const distanceRef = useRef(0);
+  const onRefreshRef = useRef(onRefresh);
+
+  useEffect(() => { onRefreshRef.current = onRefresh; }, [onRefresh]);
 
   useEffect(() => {
     const el = document.scrollingElement || document.documentElement;
@@ -51,17 +54,20 @@ function usePullToRefresh(onRefresh) {
       if (!pullingRef.current) return;
       const diff = e.touches[0].clientY - startYVal;
       if (diff > 0) {
+        const dist = Math.min(diff * 0.5, 80);
+        distanceRef.current = dist;
         setPulling(true);
-        setPullDistance(Math.min(diff * 0.5, 80));
+        setPullDistance(dist);
       }
     };
     const onTouchEnd = () => {
-      if (pulling && pullDistance > 50) {
-        onRefresh();
+      if (pullingRef.current && distanceRef.current > 50) {
+        onRefreshRef.current();
       }
+      pullingRef.current = false;
+      distanceRef.current = 0;
       setPulling(false);
       setPullDistance(0);
-      pullingRef.current = false;
     };
 
     document.addEventListener("touchstart", onTouchStart, { passive: true });
@@ -72,7 +78,7 @@ function usePullToRefresh(onRefresh) {
       document.removeEventListener("touchmove", onTouchMove);
       document.removeEventListener("touchend", onTouchEnd);
     };
-  }, [pulling, pullDistance, onRefresh]);
+  }, []);
 
   return { pulling, pullDistance };
 }
@@ -175,8 +181,11 @@ export default function DashboardPage() {
   useEffect(() => { setExplorePage(1); fetchData(1, false, rarityFilter, sortBy); }, [rarityFilter, sortBy, fetchData]);
 
   const handleLoadMore = useCallback(() => {
-    const nextPage = explorePage + 1; setExplorePage(nextPage); fetchData(nextPage, true, rarityFilter, sortBy);
-  }, [explorePage, rarityFilter, sortBy, fetchData]);
+    setExplorePage(prev => {
+      fetchData(prev + 1, true, rarityFilter, sortBy);
+      return prev + 1;
+    });
+  }, [rarityFilter, sortBy, fetchData]);
 
   const handleRefresh = useCallback(() => {
     fetchData(1, false, rarityFilter, sortBy);
@@ -242,6 +251,7 @@ export default function DashboardPage() {
   const groupedPortfolio = useMemo(() => {
     const map = new Map();
     portfolioCards.forEach(item => {
+      if (!item.card) return;
       const id = item.card.pokemon_tcg_id;
       if (!map.has(id)) map.set(id, { ...item, quantity: item.quantity || 1, instance_ids: [item.id] });
       else {
@@ -275,7 +285,7 @@ export default function DashboardPage() {
     return Object.entries(dist).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [groupedPortfolio]);
 
-  const ownedIds = useMemo(() => new Set(portfolioCards.map(c => c.card?.pokemon_tcg_id)), [portfolioCards]);
+  const ownedIds = useMemo(() => new Set(portfolioCards.filter(c => c.card?.pokemon_tcg_id).map(c => c.card.pokemon_tcg_id)), [portfolioCards]);
 
   const sortedMarketMovers = useMemo(() => {
     return [...marketMovers].map(g => {

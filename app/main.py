@@ -193,8 +193,20 @@ async def delete_from_vault(collection_id: int, current_user: User = Depends(get
 # SERVE FRONTEND (REACT)
 # ==========================================
 
-# Serve all static files from dist/ with SPA fallback to index.html
-app.mount("/", StaticFiles(directory="dist", html=True, check_dir=False), name="frontend")
+# Serve CSS, JS, images from dist/assets
+app.mount("/assets", StaticFiles(directory="dist/assets"), name="assets")
+
+# Serve favicon from dist root
+@app.get("/favicon.svg")
+async def serve_favicon():
+    return FileResponse("dist/favicon.svg")
+
+# All other routes → React SPA (index.html)
+@app.get("/{catchall:path}")
+async def serve_react_app(catchall: str):
+    if catchall in ("docs", "openapi.json"):
+        raise HTTPException(status_code=404)
+    return FileResponse("dist/index.html")
 
 if __name__ == "__main__":
     import uvicorn

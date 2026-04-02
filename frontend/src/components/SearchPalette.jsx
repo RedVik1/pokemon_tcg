@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Search, Loader2, Plus, X, Clock, TrendingUp, Trash2 } from "lucide-react";
+import { motion } from "framer-motion";
+import { Search, Loader2, Plus, X, Clock, TrendingUp } from "lucide-react";
 import api from "../api";
 import { useDebounce } from "../utils/hooks";
 import { safePrice, formatMoney } from "../utils/pricing";
@@ -68,6 +68,15 @@ export default function SearchPalette({ open, onClose, onAdd, onOpenAnalytics })
     return () => { active = false; };
   }, [debounced, open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [open, onClose]);
+
   const handleSubmit = useCallback((value) => {
     addRecentSearch(value);
     setRecentSearches(getRecentSearches());
@@ -83,6 +92,17 @@ export default function SearchPalette({ open, onClose, onAdd, onOpenAnalytics })
     clearRecentSearches();
     setRecentSearches([]);
   }, []);
+
+  const handleCardClick = useCallback((item) => {
+    addRecentSearch(item.name);
+    onClose();
+    onOpenAnalytics(item);
+  }, [onClose, onOpenAnalytics]);
+
+  const handleAddClick = useCallback((e, item) => {
+    e.stopPropagation();
+    onAdd(item);
+  }, [onAdd]);
 
   const showSuggestions = !debounced;
   const showResults = debounced && !loading;
@@ -117,7 +137,7 @@ export default function SearchPalette({ open, onClose, onAdd, onOpenAnalytics })
               <button onClick={onClose} type="button" className="md:hidden p-2 -mr-2 text-slate-500 active:text-white transition-colors">
                 <X size={20} />
               </button>
-              <div className="hidden md:flex px-2 py-1 bg-black/50 rounded text-[10px] font-bold text-slate-500 border border-white/10">ESC</div>
+              <div className="hidden md:flex px-2 py-1 bg-black/50 rounded text-[10px] font-bold text-slate-500 border border-white/10 cursor-pointer" onClick={onClose}>ESC</div>
             </form>
           </div>
         </div>
@@ -187,11 +207,11 @@ export default function SearchPalette({ open, onClose, onAdd, onOpenAnalytics })
             {showResults && results.length > 0 && (
               <div className="grid grid-cols-3 md:grid-cols-4 gap-2.5 md:gap-4">
                 {results.map((item) => (
-                  <div key={item.id} onClick={() => { addRecentSearch(item.name); onOpenAnalytics(item); }} className="p-2 md:p-2.5 rounded-xl md:rounded-2xl border border-white/[0.06] active:bg-teal-500/10 md:hover:bg-teal-500/10 cursor-pointer text-center relative group transition-colors">
+                  <div key={item.id} onClick={() => handleCardClick(item)} className="p-2 md:p-2.5 rounded-xl md:rounded-2xl border border-white/[0.06] active:bg-teal-500/10 md:hover:bg-teal-500/10 cursor-pointer text-center relative group transition-colors">
                     {item.image_url && <img src={item.image_url} className="w-full aspect-[3/4] object-contain mb-1.5 md:mb-2" loading="lazy" />}
                     <div className="text-[9px] md:text-[10px] text-white font-bold truncate">{item.name}</div>
                     <div className="text-[8px] md:text-[9px] text-teal-400 mt-0.5 md:mt-1">${formatMoney(safePrice(item.price))}</div>
-                    <div onClick={(e) => { e.stopPropagation(); onAdd(item); }} className="absolute top-2 right-2 bg-teal-500 text-black rounded-full p-1.5 md:opacity-0 md:group-hover:opacity-100 transition-all active:scale-90 md:hover:scale-110 shadow-lg">
+                    <div onClick={(e) => handleAddClick(e, item)} className="absolute top-2 right-2 bg-teal-500 text-black rounded-full p-1.5 md:opacity-0 md:group-hover:opacity-100 transition-all active:scale-90 md:hover:scale-110 shadow-lg">
                       <Plus size={13} />
                     </div>
                   </div>
