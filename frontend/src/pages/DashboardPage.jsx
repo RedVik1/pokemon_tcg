@@ -114,6 +114,7 @@ export default function DashboardPage() {
   const [busyAction, setBusyAction] = useState(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const columns = useColumns();
+  const userEmail = useMemo(() => getEmailFromToken(), []);
 
   const sortOptions = activeTab === "portfolio"
     ? ["Price: High to Low", "Price: Low to High"]
@@ -164,8 +165,8 @@ export default function DashboardPage() {
       const newExplore = (exp.data || []).map(card => ({ id: `exp-${card.id}-${pageToLoad}`, card, condition: "Market" }));
       if (append) {
         setExploreCards(prev => {
-          const prevIds = new Set(prev.map(p => p.card.id));
-          const uniqueNew = newExplore.filter(n => !prevIds.has(n.card.id));
+          const prevIds = new Set(prev.filter(p => p.card).map(p => p.card.id));
+          const uniqueNew = newExplore.filter(n => n.card && !prevIds.has(n.card.id));
           return [...prev, ...uniqueNew];
         });
       } else { setExploreCards(newExplore); }
@@ -206,7 +207,7 @@ export default function DashboardPage() {
     try {
       await api.post("/collections/add", { pokemon_tcg_id: String(cardId), condition: "Mint" });
       showToast(`${card.name} added to vault!`, "success");
-      fetchData(1, false, rarityFilter, sortBy);
+      await fetchData(1, false, rarityFilter, sortBy);
     } catch (error) {
       setPortfolioCards(prev => prev.filter(item => item.id !== newItem.id));
       if (error.response?.status === 401) { localStorage.removeItem("token"); navigate("/login"); return; }
@@ -221,16 +222,24 @@ export default function DashboardPage() {
   const executeDelete = useCallback(async () => {
     const coll = confirmDialogRef.current;
     if (!coll) return;
-    const instanceId = coll.instance_ids ? coll.instance_ids[0] : coll.id;
+
+    const instanceId = coll.instance_ids?.[0] ?? coll.id;
+    if (!instanceId && instanceId !== 0) {
+      showToast("Error: could not identify card to remove.", "error");
+      setConfirmDialog({ visible: false, coll: null });
+      return;
+    }
+
     const cardId = coll.card?.pokemon_tcg_id || coll.card?.id;
     setBusyCardId(cardId); setBusyAction("delete");
+    const snapshot = portfolioCards;
     setPortfolioCards(prev => {
       const idx = prev.findIndex(item => item.id === coll.id);
       if (idx === -1) return prev;
       const existing = prev[idx];
-      if (existing.quantity > 1) {
+      if ((existing.quantity || 1) > 1) {
         const updated = [...prev];
-        updated[idx] = { ...existing, quantity: existing.quantity - 1, instance_ids: existing.instance_ids.slice(1) };
+        updated[idx] = { ...existing, quantity: (existing.quantity || 1) - 1, instance_ids: (existing.instance_ids || []).slice(1) };
         return updated;
       }
       return prev.filter(item => item.id !== coll.id);
@@ -239,9 +248,9 @@ export default function DashboardPage() {
     try {
       await api.delete(`/collections/${instanceId}`);
       showToast("Card removed.", "success");
-      fetchData(1, false, rarityFilter, sortBy);
+      await fetchData(1, false, rarityFilter, sortBy);
     } catch {
-      setPortfolioCards(prev => [...prev, coll].sort((a, b) => (a.id || 0) - (b.id || 0)));
+      setPortfolioCards(snapshot);
       showToast("Error removing card.", "error");
     } finally {
       setBusyCardId(null); setBusyAction(null);
@@ -251,11 +260,15 @@ export default function DashboardPage() {
   const groupedPortfolio = useMemo(() => {
     const map = new Map();
     portfolioCards.forEach(item => {
-      if (!item.card) return;
+      if (!item?.card?.pokemon_tcg_id) return;
       const id = item.card.pokemon_tcg_id;
-      if (!map.has(id)) map.set(id, { ...item, quantity: item.quantity || 1, instance_ids: [item.id] });
-      else {
-        const existing = map.get(id); existing.quantity += (item.quantity || 1); existing.instance_ids.push(item.id);
+      const qty = Math.max(1, item.quantity || 1);
+      if (!map.has(id)) {
+        map.set(id, { ...item, quantity: qty, instance_ids: [item.id] });
+      } else {
+        const existing = map.get(id);
+        existing.quantity += qty;
+        existing.instance_ids.push(item.id);
       }
     });
     return Array.from(map.values());
@@ -265,7 +278,8 @@ export default function DashboardPage() {
     let csvContent = "data:text/csv;charset=utf-8,Card Name,Set,Rarity,Quantity,Price (ea),Total Value\n";
     groupedPortfolio.forEach(item => {
       const c = item.card; const price = safePrice(c.price); const qty = item.quantity;
-      csvContent += `"${c.name}","${c.set_name}","${formatRarity(c.rarity)}",${qty},$${price.toFixed(2)},$${(price * qty).toFixed(2)}\n`;
+      const escapeCsv = (s) => { const str = String(s); return `"${str.replace(/"/g, '""')}"`; };
+      csvContent += `${escapeCsv(c.name)},${escapeCsv(c.set_name)},${escapeCsv(formatRarity(c.rarity))},${qty},${price.toFixed(2)},${(price * qty).toFixed(2)}\n`;
     });
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -458,8 +472,8 @@ export default function DashboardPage() {
         )}
       </AnimatePresence>
 
-      <DesktopNavbar onLogout={() => { localStorage.removeItem("token"); navigate("/login") }} onOpenPalette={() => setPaletteOpen(true)} userEmail={getEmailFromToken()} activeTab={activeTab} setActiveTab={setActiveTab} />
-      <MobileHeader onLogout={() => { localStorage.removeItem("token"); navigate("/login") }} userEmail={getEmailFromToken()} />
+      <DesktopNavbar onLogout={() => { localStorage.removeItem("token"); navigate("/login") }} onOpenPalette={() => setPaletteOpen(true)} userEmail={userEmail} activeTab={activeTab} setActiveTab={setActiveTab} />
+      <MobileHeader onLogout={() => { localStorage.removeItem("token"); navigate("/login") }} userEmail={userEmail} />
       <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} onOpenPalette={() => setPaletteOpen(true)} />
 
       <AnimatePresence>

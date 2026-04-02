@@ -17,7 +17,7 @@ export default function LoginPage() {
       setEmail("test_demo@example.com");
       setPassword("password123");
     }
-    if (!isLoginMode) { setEmail(""); setPassword(""); setError(""); }
+    setError("");
   }, [isLoginMode, navigate]);
 
   const handleSubmit = async (e) => {

@@ -1,11 +1,9 @@
-import React, { useState, useMemo, useCallback, useEffect } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, CheckCircle, TrendingUp, TrendingDown, Trash2, Box, Loader2 } from "lucide-react";
 import { safePrice, formatMoney } from "../utils/pricing";
 import { formatRarity } from "../utils/rarity";
 import { getChartDataFromHistory } from "../utils/charts";
-
-const canHover = typeof window !== "undefined" && window.matchMedia("(hover: hover)").matches;
 
 export default function VaultCard({ coll, onOpenAnalytics, onAdd, onDelete, isPortfolio, quantity, inPortfolio, isAdding, isDeleting }) {
   const card = coll?.card || coll;
@@ -15,6 +13,11 @@ export default function VaultCard({ coll, onOpenAnalytics, onAdd, onDelete, isPo
   const setParts = useMemo(() => (card?.set_name || "").split(" • "), [card?.set_name]);
   const setName = setParts[0];
   const rarity = formatRarity(card?.rarity || setParts[1]);
+
+  const canHover = useMemo(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(hover: hover)").matches;
+  }, []);
 
   const [isHovered, setIsHovered] = useState(false);
   const [transformStyle, setTransformStyle] = useState("rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)");

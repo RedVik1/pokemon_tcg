@@ -1,14 +1,19 @@
 import { useState, useEffect, useRef } from "react";
 
 export function useCountUp(target, duration = 600) {
-  const [value, setValue] = useState(0);
-  const prevTarget = useRef(0);
+  const [value, setValue] = useState(Number.isFinite(target) ? target : 0);
+  const prevTarget = useRef(Number.isFinite(target) ? target : 0);
   const frameRef = useRef(null);
 
   useEffect(() => {
+    const safeTarget = Number.isFinite(target) ? target : 0;
     const start = prevTarget.current;
-    const diff = target - start;
-    if (diff === 0) return;
+    const diff = safeTarget - start;
+    if (Math.abs(diff) < 0.01) {
+      setValue(safeTarget);
+      prevTarget.current = safeTarget;
+      return;
+    }
 
     const startTime = performance.now();
     const animate = (now) => {
@@ -19,7 +24,7 @@ export function useCountUp(target, duration = 600) {
       if (progress < 1) {
         frameRef.current = requestAnimationFrame(animate);
       } else {
-        prevTarget.current = target;
+        prevTarget.current = safeTarget;
       }
     };
     frameRef.current = requestAnimationFrame(animate);

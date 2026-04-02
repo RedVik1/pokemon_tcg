@@ -5,5 +5,7 @@ export function safePrice(p) {
 }
 
 export function formatMoney(amount) {
-  return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return "0.00";
+  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }

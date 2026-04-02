@@ -14,10 +14,11 @@ export function getChartDataFromHistory(historyRaw, timeframe = "1M", grade = "R
     } else if (timeframe === "1Y") {
       label = idx === arrLen - 1 ? "This Mo" : `${arrLen - 1 - idx}mo ago`;
     }
-    return { name: label, price: val * multiplier };
+    const price = Number.isFinite(val) ? val * multiplier : 0;
+    return { name: label, price };
   });
-  const firstPrice = data[0].price;
-  const currentPrice = data[arrLen - 1].price;
+  const firstPrice = data[0]?.price ?? 0;
+  const currentPrice = data[arrLen - 1]?.price ?? 0;
   const change = currentPrice - firstPrice;
   const percent = firstPrice > 0 ? ((Math.abs(change) / firstPrice) * 100).toFixed(2) : "0.00";
   return { data, percent, isUp: change >= 0, isEstimated };

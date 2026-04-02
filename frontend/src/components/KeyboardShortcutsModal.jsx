@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Keyboard } from "lucide-react";
 
@@ -9,11 +9,11 @@ const SHORTCUTS = [
 ];
 
 export default function KeyboardShortcutsModal({ open, onClose }) {
-  if (!open) return null;
   return (
     <AnimatePresence>
       {open && (
         <motion.div
+          key="shortcuts-backdrop"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -39,7 +39,7 @@ export default function KeyboardShortcutsModal({ open, onClose }) {
             </div>
             <div className="p-4 space-y-1">
               {SHORTCUTS.map((s, i) => (
-                <div key={i} className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-white/[0.03]">
+                <div key={i} className="flex items-center justify-between py-2.5 px-3 rounded-lg">
                   <span className="text-sm text-slate-400">{s.action}</span>
                   <div className="flex items-center gap-1">
                     {s.keys.map((k, j) => (
@@ -57,21 +57,26 @@ export default function KeyboardShortcutsModal({ open, onClose }) {
 }
 
 export function useKeyboardShortcuts({ onOpenSearch, onToggleShortcuts }) {
+  const onOpenSearchRef = useRef(onOpenSearch);
+  const onToggleShortcutsRef = useRef(onToggleShortcuts);
+  useEffect(() => { onOpenSearchRef.current = onOpenSearch; });
+  useEffect(() => { onToggleShortcutsRef.current = onToggleShortcuts; });
+
   useEffect(() => {
     const handler = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        onOpenSearch?.();
+        onOpenSearchRef.current?.();
       }
       if (e.key === "?" && !e.metaKey && !e.ctrlKey) {
         const tag = e.target.tagName;
-        if (tag !== "INPUT" && tag !== "TEXTAREA") {
+        if (tag !== "INPUT" && tag !== "TEXTAREA" && tag !== "SELECT") {
           e.preventDefault();
-          onToggleShortcuts?.();
+          onToggleShortcutsRef.current?.();
         }
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [onOpenSearch, onToggleShortcuts]);
+  }, []);
 }

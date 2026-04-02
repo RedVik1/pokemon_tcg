@@ -59,13 +59,14 @@ export default function SearchPalette({ open, onClose, onAdd, onOpenAnalytics })
   }, [open]);
 
   useEffect(() => {
-    if (!open || !debounced) return;
-    let active = true;
+    if (!open || !debounced) { setResults([]); return; }
+    const controller = new AbortController();
     setLoading(true);
-    api.get(`/search?query=${encodeURIComponent(debounced)}&limit=50`)
-      .then(r => { if (active) setResults(r.data || []); })
-      .finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
+    api.get(`/search?query=${encodeURIComponent(debounced)}&limit=50`, { signal: controller.signal })
+      .then(r => setResults(r.data || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+    return () => controller.abort();
   }, [debounced, open]);
 
   useEffect(() => {
@@ -108,7 +109,6 @@ export default function SearchPalette({ open, onClose, onAdd, onOpenAnalytics })
   const showResults = debounced && !loading;
   const showNoResults = debounced && !loading && results.length === 0;
 
-  if (!open) return null;
   return (
     <motion.div
       initial={{ opacity: 0 }}
