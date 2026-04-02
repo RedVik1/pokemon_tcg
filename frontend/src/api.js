@@ -36,3 +36,8 @@ export async function login(email, password) {
   if (token) localStorage.setItem('token', token);
   return res.data;
 }
+
+export async function register(email, password) {
+  const res = await api.post('/users/register', { email, password });
+  return res.data;
+}
