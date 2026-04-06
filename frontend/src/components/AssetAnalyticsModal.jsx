@@ -16,9 +16,8 @@ export default function AssetAnalyticsModal({ coll, onClose, onAdd, onDelete, is
 
   useEffect(() => { setTimeframe("1M"); setGrade("Raw"); setAdding(false); }, [coll]);
 
-  const gradeMultiplier = grade === "PSA 10" ? 4.2 : grade === "PSA 9" ? 1.8 : 1.0;
   const { data, percent, isUp, isEstimated } = useMemo(() => getChartDataFromHistory(card?.history, timeframe, grade), [card?.history, timeframe, grade]);
-  const currentPrice = basePrice * gradeMultiplier;
+  const currentPrice = data.length > 0 ? data[data.length - 1].price : basePrice * (grade === "PSA 10" ? 4.2 : grade === "PSA 9" ? 1.8 : 1.0);
   const setParts = (card?.set_name || "").split(" • ");
   const setName = setParts[0];
   const rarity = formatRarity(card?.rarity || setParts[1]);
