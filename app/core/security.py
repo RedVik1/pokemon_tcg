@@ -1,15 +1,22 @@
 from __future__ import annotations
 
+import logging
+import os
+import secrets
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 
 import jwt
 from passlib.context import CryptContext
 
-# JWT configuration (development only - replace with env vars in prod)
-SECRET_KEY: str = "dev-secret-key"
+logger = logging.getLogger(__name__)
+
+SECRET_KEY: str = os.getenv("JWT_SECRET_KEY") or os.getenv("SECRET_KEY") or secrets.token_urlsafe(32)
 ALGORITHM: str = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
+if "JWT_SECRET_KEY" not in os.environ and "SECRET_KEY" not in os.environ:
+    logger.warning("JWT secret missing from environment; generated an ephemeral development secret.")
 
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

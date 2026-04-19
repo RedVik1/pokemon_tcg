@@ -30,6 +30,7 @@ import { getChartDataFromHistory } from "../../../shared/lib/charts";
 import { getEmailFromToken } from "../../../shared/lib/auth";
 import { PIE_COLORS } from "../../../shared/constants/colors";
 import CustomTooltip from "../../../components/CustomTooltip";
+import SortControl from "../../../components/SortControl";
 
 function AnimatedValue({ value, decimals = 2 }) {
   const animated = useCountUp(value, 600);
@@ -226,9 +227,12 @@ export default function DashboardPage() {
             </button>
           </div>
           <div className="flex items-center gap-2">
+            <div className="hidden md:block">
+              <SortControl value={sortBy} options={sortOptions} onChange={setSortBy} />
+            </div>
             <button
               onClick={() => setSortSheetOpen(true)}
-              className="p-2.5 rounded-xl bg-[#141414] border border-white/[0.06] text-slate-400 active:bg-white/5 active:scale-95 transition-all duration-75 text-xs font-bold"
+              className="md:hidden p-2.5 rounded-xl bg-[#141414] border border-white/[0.06] text-slate-400 active:bg-white/5 active:scale-95 transition-all duration-75 text-xs font-bold"
             >
               <span className="hidden md:inline">Sort:</span> {sortBy} ▾
             </button>

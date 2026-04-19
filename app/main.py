@@ -169,14 +169,14 @@ async def get_me(
         ))
     return output
 
-@app.post("/collections/add", response_model=CollectionOut)
+@app.post("/collections/add", status_code=204)
 async def add_to_vault(
     coll_in: CollectionCreate,
     current_user: User = Depends(get_current_user),
     use_case: AddCardToCollection = Depends(get_add_card_to_collection_use_case),
 ):
     try:
-        result = await use_case.execute(AddCardToCollectionCommand(
+        await use_case.execute(AddCardToCollectionCommand(
             user_id=current_user.id,
             pokemon_tcg_id=coll_in.pokemon_tcg_id,
             condition=coll_in.condition,
@@ -184,21 +184,7 @@ async def add_to_vault(
         ))
     except CardNotFoundError:
         raise HTTPException(status_code=404, detail="Card not found")
-    
-    card_history = result.card.history
-    if not card_history:
-        from app.services.pokemon_api import _generate_mock_history
-        card_history = _generate_mock_history(result.card.price or 0, result.card.pokemon_tcg_id)
-    
-    c_out = CardOut(
-        id=result.card.id, pokemon_tcg_id=result.card.pokemon_tcg_id, name=result.card.name,
-        set_name=result.card.set_name, image_url=result.card.image_url, price=result.card.price,
-        history=card_history,
-    )
-    return CollectionOut(
-        id=result.id, user_id=result.user_id, acquired_date=result.acquired_date,
-        condition=result.condition, card=c_out, quantity=result.quantity,
-    )
+    return Response(status_code=204)
 
 @app.delete("/collections/{collection_id}", status_code=204)
 async def delete_from_vault(

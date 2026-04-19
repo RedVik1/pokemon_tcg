@@ -51,3 +51,14 @@ export async function register(email, password) {
   const res = await api.post('/users/register', { email, password });
   return res.data;
 }
+
+export function addCardToVault(pokemonTcgId, condition = "Mint") {
+  return api.post("/collections/add", {
+    pokemon_tcg_id: String(pokemonTcgId),
+    condition,
+  });
+}
+
+export function removeCollectionItem(collectionId) {
+  return api.delete(`/collections/${collectionId}`);
+}

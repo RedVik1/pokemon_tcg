@@ -142,7 +142,7 @@ async def fetch_card_data(pokemon_tcg_id: str) -> Dict[str, Any]:
         return {"name": "Unknown", "set_name": "Error", "image_url": None, "price": 0.0, "rarity": "Common"}
 
 async def search_cards_by_name(query: str, page: int = 1, limit: int = 48, rarity: str = "", sort_by: str = "Newest") -> List[Dict[str, Any]]:
-    cache_key = f"q_{query}_r_{rarity}_s_{sort_by}_p_{page}"
+    cache_key = f"q_{query}_r_{rarity}_s_{sort_by}_p_{page}_l_{limit}"
     
     if cache_key in _search_cache:
         timestamp, cached_data = _search_cache[cache_key]
