@@ -1,12 +1,12 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { X } from "lucide-react";
-import { RARITIES } from "../constants/rarities";
+import { RARITIES } from "../shared/constants/rarities";
 
 export default function RarityFilterSheet({ open, onClose, rarityFilter, setRarityFilter }) {
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-[90] md:hidden" onClick={onClose}>
+    <div className="fixed inset-0 z-[90]" onClick={onClose}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <motion.div
         initial={{ y: "100%" }}

@@ -1,5 +1,5 @@
 import React from "react";
-import { RARITIES } from "../constants/rarities";
+import { RARITIES } from "../shared/constants/rarities";
 
 export default function SidebarFilters({ rarityFilter, setRarityFilter }) {
   return (

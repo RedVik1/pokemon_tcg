@@ -1,5 +1,5 @@
 import React from "react";
-import { formatMoney } from "../utils/pricing";
+import { formatMoney } from "../shared/lib/pricing";
 
 export default function CustomTooltip({ active, payload }) {
   if (active && payload && payload.length) {

@@ -1,29 +1,40 @@
 # File: app/main.py
 from __future__ import annotations
-import os
 import logging
-from datetime import datetime
-from decimal import Decimal
 from typing import List, Optional
 
-import jwt
 from fastapi import FastAPI, Depends, HTTPException, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
+from fastapi.security import OAuth2PasswordRequestForm
 
-from app.db.database import get_session, init_db
-from app.db.models import User, Card, PriceHistory, Collection
+from app.db.database import init_db
+from app.db.models import User
 from app.schemas import (
     UserCreate, UserOut, CardOut, CollectionCreate, CollectionOut,
     PortfolioStatsOut, CardSearchResult, Token
 )
-from app.services.pokemon_api import fetch_card_data, search_cards_by_name, _generate_mock_history, get_top_market_movers
-from app.core.security import hash_password, verify_password, create_access_token, SECRET_KEY, ALGORITHM
+from app.adapters.api.auth import get_current_user
+from app.adapters.wiring import (
+    get_search_cards_use_case,
+    get_market_movers_use_case,
+    get_calculate_portfolio_value_use_case,
+    get_collection_use_case,
+    get_add_card_to_collection_use_case,
+    get_remove_from_collection_use_case,
+    get_register_user_use_case,
+    get_authenticate_user_use_case,
+)
+from app.core.ports.usecases import (
+    SearchCardsCommand, GetMarketMovers, CalculatePortfolioValueCommand,
+    CalculatePortfolioValue, GetCollectionCommand, GetCollection,
+    AddCardToCollectionCommand, AddCardToCollection,
+    RemoveFromCollectionCommand, RemoveFromCollection,
+    RegisterUserCommand, RegisterUser, AuthenticateUserCommand, AuthenticateUser,
+)
+from app.core.services.add_card_to_collection import CardNotFoundError
+from app.core.services.register_user import UserAlreadyExistsError
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -38,156 +49,167 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/users/login")
-
 @app.on_event("startup")
 async def startup_event():
     await init_db()
 
-async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_session)) -> User:
-    cred_ex = HTTPException(status_code=401, detail="Invalid credentials", headers={"WWW-Authenticate": "Bearer"})
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email = payload.get("sub")
-    except jwt.PyJWTError:
-        raise cred_ex
-    if not email:
-        raise cred_ex
-    res = await db.execute(select(User).where(User.email == email))
-    user = res.scalar_one_or_none()
-    if not user:
-        raise cred_ex
-    return user
 
 # 🔥 НОВЫЙ ЭНДПОИНТ: Регистрация пользователей
 @app.post("/users/register", response_model=UserOut)
-async def register_user(user_in: UserCreate, db: AsyncSession = Depends(get_session)):
-    # Проверяем, существует ли уже такой email
-    res = await db.execute(select(User).where(User.email == user_in.email))
-    if res.scalar_one_or_none():
+async def register_user(
+    user_in: UserCreate,
+    use_case: RegisterUser = Depends(get_register_user_use_case),
+):
+    try:
+        result = await use_case.execute(RegisterUserCommand(
+            email=user_in.email, password=user_in.password,
+        ))
+        return result
+    except UserAlreadyExistsError:
         raise HTTPException(status_code=400, detail="Email is already registered")
-    
-    # Хэшируем пароль и сохраняем
-    hashed_pw = hash_password(user_in.password)
-    new_user = User(email=user_in.email, password_hash=hashed_pw)
-    db.add(new_user)
-    await db.commit()
-    await db.refresh(new_user)
-    return new_user
 
 @app.post("/users/login", response_model=Token)
-async def login_api(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_session)):
-    res = await db.execute(select(User).where(User.email == form_data.username))
-    user = res.scalar_one_or_none()
-    if not user or not verify_password(form_data.password, user.password_hash):
+async def login_api(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    use_case: AuthenticateUser = Depends(get_authenticate_user_use_case),
+):
+    try:
+        result = await use_case.execute(AuthenticateUserCommand(
+            email=form_data.username, password=form_data.password,
+        ))
+        return {"access_token": result.access_token, "token_type": "bearer"}
+    except Exception:
         raise HTTPException(status_code=401, detail="Incorrect email or password")
-    access_token = create_access_token(data={"sub": user.email})
-    return {"access_token": access_token, "token_type": "bearer"}
 
 @app.get("/search", response_model=List[CardSearchResult])
-async def search(query: str = "", page: int = 1, limit: int = 48, rarity: str = "", sort_by: str = "Newest"):
-    return await search_cards_by_name(query, page, limit, rarity, sort_by)
+async def search(
+    query: str = "",
+    page: int = 1,
+    limit: int = 48,
+    rarity: str = "",
+    sort_by: str = "Newest",
+    use_case: SearchCards = Depends(get_search_cards_use_case),
+):
+    result = await use_case.execute(SearchCardsCommand(
+        query=query, page=page, limit=limit, rarity=rarity, sort_by=sort_by,
+    ))
+    return [
+        {
+            "id": card.pokemon_tcg_id,
+            "name": card.name,
+            "set_name": card.set_name or "",
+            "rarity": card.rarity,
+            "image_url": card.image_url,
+            "price": card.price,
+            "history": card.history,
+            "is_ebay": False,
+        }
+        for card in result.cards
+    ]
 
 @app.get("/market-movers", response_model=List[CardSearchResult])
-async def market_movers_api():
-    return await get_top_market_movers()
+async def market_movers_api(
+    use_case: GetMarketMovers = Depends(get_market_movers_use_case),
+):
+    movers = await use_case.execute()
+    return [
+        {
+            "id": mover.card.pokemon_tcg_id,
+            "name": mover.card.name,
+            "set_name": mover.card.set_name or "",
+            "rarity": mover.card.rarity,
+            "image_url": mover.card.image_url,
+            "price": mover.card.price,
+            "history": mover.card.history,
+            "is_ebay": False,
+        }
+        for mover in movers
+    ]
 
 @app.get("/portfolio/stats", response_model=PortfolioStatsOut)
-async def portfolio_stats(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_session)):
-    res = await db.execute(select(Collection).where(Collection.user_id == current_user.id).options(
-        selectinload(Collection.card).selectinload(Card.price_history)
-    ))
-    colls = res.scalars().all()
-    total = sum([float(max(c.card.price_history, key=lambda ph: ph.date_recorded).price) * getattr(c, 'quantity', 1) for c in colls if c.card.price_history]) or 0.0
-    total_qty = sum([getattr(c, 'quantity', 1) for c in colls])
-    top_card = None
-    if colls and [c for c in colls if c.card.price_history]:
-        best = max([c for c in colls if c.card.price_history], key=lambda c: float(max(c.card.price_history, key=lambda ph: ph.date_recorded).price))
-        lp = float(max(best.card.price_history, key=lambda ph: ph.date_recorded).price)
-        top_card = CardOut(
-            id=best.card.id, pokemon_tcg_id=best.card.pokemon_tcg_id, name=best.card.name,
-            set_name=best.card.set_name, image_url=best.card.image_url, price=lp,
-            history=_generate_mock_history(lp, best.card.pokemon_tcg_id) 
+async def portfolio_stats(
+    current_user: User = Depends(get_current_user),
+    use_case: CalculatePortfolioValue = Depends(get_calculate_portfolio_value_use_case),
+):
+    stats = await use_case.execute(CalculatePortfolioValueCommand(user_id=current_user.id))
+    top_card_out = None
+    if stats.most_valuable_card:
+        c = stats.most_valuable_card
+        top_card_out = CardOut(
+            id=c.id, pokemon_tcg_id=c.pokemon_tcg_id, name=c.name,
+            set_name=c.set_name, image_url=c.image_url, price=c.price,
+            history=c.history,
         )
-    return PortfolioStatsOut(total_cards=total_qty, total_portfolio_value=total, most_valuable_card=top_card)
+    return PortfolioStatsOut(
+        total_cards=stats.total_cards,
+        total_portfolio_value=stats.total_portfolio_value,
+        most_valuable_card=top_card_out,
+    )
 
 @app.get("/collections/me", response_model=List[CollectionOut])
-async def get_me(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_session)):
-    res = await db.execute(select(Collection).where(Collection.user_id == current_user.id).options(
-        selectinload(Collection.card).selectinload(Card.price_history)
-    ))
-    items = res.scalars().all()
+async def get_me(
+    current_user: User = Depends(get_current_user),
+    use_case: GetCollection = Depends(get_collection_use_case),
+):
+    result = await use_case.execute(GetCollectionCommand(user_id=current_user.id))
+    from app.services.pokemon_api import _generate_mock_history
     output = []
-    for coll in items:
-        card = coll.card
-        latest_price = 0.0
-        if card and card.price_history:
-            latest = max(card.price_history, key=lambda ph: ph.date_recorded)
-            if latest and latest.price is not None:
-                latest_price = float(latest.price)
-                
+    for item in result.items:
+        card_history = item.card.history
+        if not card_history:
+            card_history = _generate_mock_history(item.card.price or 0, item.card.pokemon_tcg_id)
         c_out = CardOut(
-            id=card.id, pokemon_tcg_id=card.pokemon_tcg_id, name=card.name,
-            set_name=card.set_name, image_url=card.image_url, price=latest_price,
-            history=_generate_mock_history(latest_price, card.pokemon_tcg_id)
+            id=item.card.id, pokemon_tcg_id=item.card.pokemon_tcg_id, name=item.card.name,
+            set_name=item.card.set_name, image_url=item.card.image_url, price=item.card.price,
+            history=card_history,
         )
         output.append(CollectionOut(
-            id=coll.id, user_id=coll.user_id, acquired_date=coll.acquired_date,
-            condition=coll.condition, card=c_out, quantity=getattr(coll, "quantity", 1)
+            id=item.id, user_id=item.user_id, acquired_date=item.acquired_date,
+            condition=item.condition, card=c_out, quantity=item.quantity,
         ))
     return output
 
 @app.post("/collections/add", response_model=CollectionOut)
-async def add_to_vault(coll_in: CollectionCreate, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_session)):
-    res = await db.execute(select(Card).where(Card.pokemon_tcg_id == coll_in.pokemon_tcg_id).options(selectinload(Card.price_history)))
-    card = res.scalar_one_or_none()
+async def add_to_vault(
+    coll_in: CollectionCreate,
+    current_user: User = Depends(get_current_user),
+    use_case: AddCardToCollection = Depends(get_add_card_to_collection_use_case),
+):
+    try:
+        result = await use_case.execute(AddCardToCollectionCommand(
+            user_id=current_user.id,
+            pokemon_tcg_id=coll_in.pokemon_tcg_id,
+            condition=coll_in.condition,
+            acquired_date=coll_in.acquired_date,
+        ))
+    except CardNotFoundError:
+        raise HTTPException(status_code=404, detail="Card not found")
     
-    if not card:
-        data = await fetch_card_data(coll_in.pokemon_tcg_id)
-        if not data or not data.get("name") or data.get("name") == "Unknown":
-            raise HTTPException(status_code=404, detail="Card not found")
-            
-        card = Card(pokemon_tcg_id=coll_in.pokemon_tcg_id, name=data.get("name"), set_name=data.get("set_name"), image_url=data.get("image_url"))
-        db.add(card)
-        await db.commit()
-        await db.refresh(card)
-        
-        price = data.get("price") or 0.0
-        ph = PriceHistory(card_id=card.id, price=Decimal(str(price)))
-        db.add(ph)
-        await db.commit()
-        
-        res = await db.execute(select(Card).where(Card.id == card.id).options(selectinload(Card.price_history)))
-        card = res.scalar_one()
-        
-    existing_res = await db.execute(select(Collection).where(Collection.user_id == current_user.id, Collection.card_id == card.id))
-    existing = existing_res.scalar_one_or_none()
+    card_history = result.card.history
+    if not card_history:
+        from app.services.pokemon_api import _generate_mock_history
+        card_history = _generate_mock_history(result.card.price or 0, result.card.pokemon_tcg_id)
     
-    if existing:
-        existing.quantity = getattr(existing, "quantity", 1) + 1
-        await db.commit()
-    else:
-        coll = Collection(user_id=current_user.id, card_id=card.id, acquired_date=coll_in.acquired_date, condition=coll_in.condition)
-        if hasattr(coll, 'quantity'): coll.quantity = 1
-        db.add(coll)
-        await db.commit()
-        coll_out = coll
-    
-    await db.refresh(existing if existing else coll_out)
-    return Response(status_code=200)
+    c_out = CardOut(
+        id=result.card.id, pokemon_tcg_id=result.card.pokemon_tcg_id, name=result.card.name,
+        set_name=result.card.set_name, image_url=result.card.image_url, price=result.card.price,
+        history=card_history,
+    )
+    return CollectionOut(
+        id=result.id, user_id=result.user_id, acquired_date=result.acquired_date,
+        condition=result.condition, card=c_out, quantity=result.quantity,
+    )
 
-@app.delete("/collections/{collection_id}", response_model=None)
-async def delete_from_vault(collection_id: int, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_session)):
-    res = await db.execute(select(Collection).where(Collection.id == collection_id, Collection.user_id == current_user.id))
-    coll = res.scalar_one_or_none()
-    if not coll: raise HTTPException(status_code=404)
-    
-    if getattr(coll, "quantity", 1) > 1:
-        coll.quantity = coll.quantity - 1
-    else:
-        await db.delete(coll)
-    await db.commit()
-    return Response(status_code=204)
+@app.delete("/collections/{collection_id}", status_code=204)
+async def delete_from_vault(
+    collection_id: int,
+    current_user: User = Depends(get_current_user),
+    use_case: RemoveFromCollection = Depends(get_remove_from_collection_use_case),
+):
+    await use_case.execute(RemoveFromCollectionCommand(
+        user_id=current_user.id,
+        collection_id=collection_id,
+    ))
 
 # ==========================================
 # SERVE FRONTEND (REACT)

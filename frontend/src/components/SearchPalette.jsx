@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Search, Loader2, Plus, X, Clock, TrendingUp } from "lucide-react";
-import api from "../api";
-import { useDebounce } from "../utils/hooks";
-import { safePrice, formatMoney } from "../utils/pricing";
+import api from "../shared/api/axios";
+import { useDebounce } from "../shared/lib/hooks";
+import { safePrice, formatMoney } from "../shared/lib/pricing";
 
 const RECENT_KEY = "collectr_recent_searches";
 const MAX_RECENT = 5;

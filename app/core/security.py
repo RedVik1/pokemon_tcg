@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Dict, Any
 
 import jwt
 from passlib.context import CryptContext
@@ -25,3 +25,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+def decode_access_token(token: str) -> Dict[str, Any]:
+    """Decode and validate a JWT token. Returns the payload dict."""
+    return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
