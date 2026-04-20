@@ -14,7 +14,19 @@ export default function VirtualCardGrid({
   onLoadMore,
   loadingMore,
   showLoadMore,
+  loading,
 }) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <svg className="animate-spin h-8 w-8 text-teal-500" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 md:gap-6 lg:gap-8">
@@ -23,18 +35,7 @@ export default function VirtualCardGrid({
           if (!cardObj) return null;
           const targetId = cardObj.pokemon_tcg_id || cardObj.id;
 
-          // For Explore tab, we need to find how many of this card the user owns.
-          // The user owns it if targetId is in ownedIds.
-          // To get the exact quantity, we search the cards list for a portfolio item with the same targetId.
-          let finalQuantity = c.quantity;
-          if (finalQuantity === undefined || finalQuantity === 0) {
-             const ownedItem = cards.find(item =>
-               (item.card?.pokemon_tcg_id || item.pokemon_tcg_id) === targetId && (item.id === undefined || !item.id.startsWith('exp-'))
-             );
-             if (ownedItem) finalQuantity = ownedItem.quantity;
-          }
-
-          return (
+return (
             <VaultCard
               key={c.id || targetId}
               coll={c}
@@ -42,7 +43,7 @@ export default function VirtualCardGrid({
               onAdd={onAdd}
               onDelete={onDelete}
               isPortfolio={isPortfolio}
-              quantity={finalQuantity || 0}
+              quantity={c.quantity || 0}
               inPortfolio={ownedIds.has(targetId)}
               isAdding={busyCardId === targetId && busyAction === "add"}
               isDeleting={busyCardId === targetId && busyAction === "delete"}

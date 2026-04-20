@@ -88,17 +88,22 @@ export function useDashboard() {
         if (controller.signal.aborted) return;
 
         setPortfolioStats(statsRes.data);
-        setCollectionItems(collRes.data || []);
+        const newCollectionItems = collRes.data || [];
+        setCollectionItems(newCollectionItems);
         computeOwnedIds();
 
         const newExplore = (exploreRes.data || []).map((card) => {
-          // Find if user owns this card to set the initial quantity
-          const ownedItem = collectionItems.find(item => item.card?.pokemon_tcg_id === card.pokemon_tcg_id);
+          // Find if user owns this card - match by pokemon_tcg_id (which is card.id from search API)
+          const searchId = card.id;
+          const ownedItem = newCollectionItems.find(item => 
+            item.card?.pokemon_tcg_id === searchId || item.card?.id === searchId
+          );
+          const qty = ownedItem ? ownedItem.quantity : 0;
           return {
-            id: `exp-${card.id}-${pageToLoad}`,
+            id: `exp-${searchId}-${pageToLoad}`,
             card,
             condition: "Market",
-            quantity: ownedItem ? ownedItem.quantity : 0,
+            quantity: qty,
           };
         });
 

@@ -197,15 +197,6 @@ export default function DashboardPage() {
           setRarityFilter={setRarityFilter}
         />
       )}
-      {sortSheetOpen && (
-        <SortSheet
-          open={sortSheetOpen}
-          onClose={() => setSortSheetOpen(false)}
-          sortBy={sortBy}
-          setSortBy={setSortBy}
-          options={sortOptions}
-        />
-      )}
 
       {/* Main Content */}
       <main className="flex flex-col lg:flex-row flex-1 max-w-[1600px] mx-auto px-4 md:px-8 py-5 md:py-8 pb-24 md:pb-8 gap-6 lg:gap-8">
@@ -224,17 +215,6 @@ export default function DashboardPage() {
               className="lg:hidden p-2.5 rounded-xl bg-[#141414] border border-white/[0.06] text-slate-400 active:bg-white/5 active:scale-95 transition-all duration-75"
             >
               <SlidersHorizontal size={18} />
-            </button>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="hidden md:block">
-              <SortControl value={sortBy} options={sortOptions} onChange={setSortBy} />
-            </div>
-            <button
-              onClick={() => setSortSheetOpen(true)}
-              className="md:hidden p-2.5 rounded-xl bg-[#141414] border border-white/[0.06] text-slate-400 active:bg-white/5 active:scale-95 transition-all duration-75 text-xs font-bold"
-            >
-              <span className="hidden md:inline">Sort:</span> {sortBy} ▾
             </button>
           </div>
         </div>
@@ -361,6 +341,28 @@ export default function DashboardPage() {
             </div>
           </div>
         )}
+
+        {/* Sort - positioned above card grid */}
+        <div className="flex items-center mb-6">
+          <div className="flex-1" />
+          <div className="relative">
+            <button
+              onClick={() => setSortSheetOpen(true)}
+              className="flex items-center gap-2 px-5 py-3 bg-[#141414] border border-white/[0.06] rounded-xl text-base font-bold"
+            >
+              <span className="text-teal-400">Sort:</span> <span className="text-white">{sortBy}</span> ▾
+            </button>
+            {sortSheetOpen && (
+              <SortSheet
+                open={sortSheetOpen}
+                onClose={() => setSortSheetOpen(false)}
+                sortBy={sortBy}
+                setSortBy={setSortBy}
+                options={sortOptions}
+              />
+            )}
+          </div>
+        </div>
 
         {/* Card Grid */}
         <VirtualCardGrid

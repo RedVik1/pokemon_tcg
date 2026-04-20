@@ -1,37 +1,35 @@
-import React from "react";
-import { motion } from "framer-motion";
-import { X } from "lucide-react";
+import React, { useRef, useEffect } from "react";
 import { RARITIES } from "../shared/constants/rarities";
 
 export default function RarityFilterSheet({ open, onClose, rarityFilter, setRarityFilter }) {
+  const ref = useRef(null);
+  
+  useEffect(() => {
+    if (!open) return;
+    const handleClickOutside = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) {
+        onClose();
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [open, onClose]);
+  
   if (!open) return null;
+  
   return (
-    <div className="fixed inset-0 z-[90]" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <motion.div
-        initial={{ y: "100%" }}
-        animate={{ y: 0 }}
-        exit={{ y: "100%" }}
-        transition={{ type: "spring", damping: 30, stiffness: 300 }}
-        className="absolute bottom-0 left-0 right-0 bg-[#141414] rounded-t-3xl border-t border-white/[0.08] max-h-[70vh] overflow-hidden flex flex-col"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between p-5 border-b border-white/[0.06]">
-          <h3 className="text-white font-bold text-lg">Filter by Rarity</h3>
-          <button onClick={onClose} className="p-2 -mr-1 text-slate-500 active:text-white"><X size={20} /></button>
-        </div>
-        <div className="overflow-y-auto p-4 pb-8 space-y-1">
-          {RARITIES.map(r => (
-            <button
-              key={r.value}
-              onClick={() => { setRarityFilter(r.value); onClose(); }}
-              className={`w-full text-left px-5 py-3.5 rounded-xl text-sm font-semibold transition-colors ${rarityFilter === r.value ? 'bg-teal-500/15 text-teal-400' : 'text-slate-400 active:bg-white/5'}`}
-            >
-              {r.label}
-            </button>
-          ))}
-        </div>
-      </motion.div>
+    <div ref={ref} className="absolute top-full mt-2 left-0 w-48 bg-[#141414] rounded-xl border border-white/[0.08] shadow-xl z-50">
+      <div className="p-1.5 space-y-0.5">
+        {RARITIES.map(r => (
+          <button
+            key={r.value}
+            onClick={() => { setRarityFilter(r.value); onClose(); }}
+            className={`w-full text-left px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${rarityFilter === r.value ? 'bg-teal-500/15 text-teal-400' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+          >
+            {r.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
