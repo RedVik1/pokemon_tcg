@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { User, LogOut } from "lucide-react";
 
@@ -8,6 +8,26 @@ import { User, LogOut } from "lucide-react";
  */
 export default function MobileHeader({ onLogout, userEmail }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const handlePointerDown = (event) => {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+    };
+  }, [menuOpen]);
+
   return (
     <header className="md:hidden sticky top-0 z-40 w-full bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-white/[0.04] pt-safe">
       <div className="px-4 h-14 flex items-center justify-between">
@@ -15,23 +35,17 @@ export default function MobileHeader({ onLogout, userEmail }) {
           <div className="h-6 w-6 rounded-full bg-teal-500 shadow-[0_0_10px_rgba(20,184,166,0.4)]" />
           <span className="text-lg font-black tracking-wider text-white">COLLECTR</span>
         </div>
-        <div className="relative">
+        <div ref={containerRef} className="relative">
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             className="p-2 -mr-2 text-slate-400 active:text-white transition-colors"
+            aria-label="Open profile menu"
           >
             <User size={22} />
           </button>
           <AnimatePresence>
             {menuOpen && (
               <>
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-40"
-                  onClick={() => setMenuOpen(false)}
-                />
                 <motion.div
                   initial={{ opacity: 0, y: -8, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}

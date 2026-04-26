@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import { useRef, useEffect } from "react";
 import { RARITIES } from "../shared/constants/rarities";
 
 export default function RarityFilterSheet({ open, onClose, rarityFilter, setRarityFilter }) {
@@ -12,7 +12,11 @@ export default function RarityFilterSheet({ open, onClose, rarityFilter, setRari
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
   }, [open, onClose]);
   
   if (!open) return null;

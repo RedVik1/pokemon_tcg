@@ -1,7 +1,7 @@
 import React, { useCallback, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, CheckCircle, Trash2, Download, Flame, SlidersHorizontal, X } from "lucide-react";
+import { Search, CheckCircle, Trash2, Download, Flame, X } from "lucide-react";
 import { ResponsiveContainer, Tooltip as ReTooltip, PieChart, Pie, Cell } from "recharts";
 
 import { DesktopNavbar } from "../../../widgets/navbar";
@@ -20,8 +20,7 @@ import { MoversGrid } from "../../../features/market-movers";
 import { useFilterStore } from "../../../features/sort-filter/model/filterStore";
 import { useDashboard } from "../model/useDashboard";
 import { generatePortfolioCSV, downloadCSV } from "../../../entities/collection/model/format";
-import RarityFilterSheet from "../../../components/RarityFilterSheet";
-import SortSheet from "../../../components/SortSheet";
+import MobileFilterSortBar from "../../../components/MobileFilterSortBar";
 import SidebarFilters from "../../../components/SidebarFilters";
 import { useCountUp } from "../../../shared/lib/countUp";
 import { formatMoney } from "../../../shared/lib/pricing";
@@ -30,7 +29,6 @@ import { getChartDataFromHistory } from "../../../shared/lib/charts";
 import { getEmailFromToken } from "../../../shared/lib/auth";
 import { PIE_COLORS } from "../../../shared/constants/colors";
 import CustomTooltip from "../../../components/CustomTooltip";
-import SortControl from "../../../components/SortControl";
 
 function AnimatedValue({ value, decimals = 2 }) {
   const animated = useCountUp(value, 600);
@@ -188,16 +186,6 @@ export default function DashboardPage() {
         onOpenPalette={() => setPaletteOpen(true)}
       />
 
-      {/* Sheets */}
-      {raritySheetOpen && (
-        <RarityFilterSheet
-          open={raritySheetOpen}
-          onClose={() => setRaritySheetOpen(false)}
-          rarityFilter={rarityFilter}
-          setRarityFilter={setRarityFilter}
-        />
-      )}
-
       {/* Main Content */}
       <main className="flex flex-col lg:flex-row flex-1 max-w-[1600px] mx-auto px-4 md:px-8 py-5 md:py-8 pb-24 md:pb-8 gap-6 lg:gap-8">
         {/* Desktop sidebar filters - left side on desktop */}
@@ -207,18 +195,6 @@ export default function DashboardPage() {
 
         {/* Right content area */}
         <div className="flex-1 min-w-0">
-          {/* Desktop sort + filters bar */}
-          <div className="flex items-center justify-between mb-4 md:mb-6">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setRaritySheetOpen(true)}
-              className="lg:hidden p-2.5 rounded-xl bg-[#141414] border border-white/[0.06] text-slate-400 active:bg-white/5 active:scale-95 transition-all duration-75"
-            >
-              <SlidersHorizontal size={18} />
-            </button>
-          </div>
-        </div>
-
         {/* Tab Content */}
         {activeTab === "explore" && (
           <>
@@ -342,27 +318,18 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Sort - positioned above card grid */}
-        <div className="flex items-center mb-6">
-          <div className="flex-1" />
-          <div className="relative">
-            <button
-              onClick={() => setSortSheetOpen(true)}
-              className="flex items-center gap-2 px-5 py-3 bg-[#141414] border border-white/[0.06] rounded-xl text-base font-bold"
-            >
-              <span className="text-teal-400">Sort:</span> <span className="text-white">{sortBy}</span> ▾
-            </button>
-            {sortSheetOpen && (
-              <SortSheet
-                open={sortSheetOpen}
-                onClose={() => setSortSheetOpen(false)}
-                sortBy={sortBy}
-                setSortBy={setSortBy}
-                options={sortOptions}
-              />
-            )}
-          </div>
-        </div>
+        <MobileFilterSortBar
+          activeTab={activeTab}
+          sortBy={sortBy}
+          sortOptions={sortOptions}
+          sortSheetOpen={sortSheetOpen}
+          setSortSheetOpen={setSortSheetOpen}
+          raritySheetOpen={raritySheetOpen}
+          setRaritySheetOpen={setRaritySheetOpen}
+          rarityFilter={rarityFilter}
+          setRarityFilter={setRarityFilter}
+          setSortBy={setSortBy}
+        />
 
         {/* Card Grid */}
         <VirtualCardGrid

@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import { useRef, useEffect } from "react";
 import { Check } from "lucide-react";
 
 export default function SortSheet({ open, onClose, sortBy, setSortBy, options }) {
@@ -12,7 +12,11 @@ export default function SortSheet({ open, onClose, sortBy, setSortBy, options })
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
   }, [open, onClose]);
   
   if (!open) return null;
