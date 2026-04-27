@@ -199,7 +199,7 @@ export default function DashboardPage() {
         {activeTab === "explore" && (
           <>
             {/* Search bar */}
-            <div className="bg-[#141414] rounded-2xl md:rounded-xl p-4 md:p-6 mb-5 md:mb-8 border border-white/[0.06] shadow-lg">
+            <div className="hidden md:block bg-[#141414] rounded-2xl md:rounded-xl p-4 md:p-6 mb-5 md:mb-8 border border-white/[0.06] shadow-lg">
               <h2 className="text-lg md:text-xl font-bold mb-3 md:mb-4">Explore Popular Cards</h2>
               <div
                 onClick={() => setPaletteOpen(true)}
