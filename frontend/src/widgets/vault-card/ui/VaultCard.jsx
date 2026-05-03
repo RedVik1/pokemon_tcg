@@ -1,12 +1,11 @@
-import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useMemo, useCallback } from "react";
+import { motion } from "framer-motion";
 import { Plus, CheckCircle, TrendingUp, TrendingDown, Trash2, Box, Loader2 } from "lucide-react";
 import { safePrice, formatMoney } from "../../../shared/lib/pricing";
 import { formatRarity } from "../../../shared/lib/rarity";
 import { getChartDataFromHistory } from "../../../shared/lib/charts";
 
 export default function VaultCard({ coll, onOpenAnalytics, onAdd, onDelete, isPortfolio, quantity, inPortfolio, isAdding, isDeleting }) {
-  if (!coll) return null;
   const card = coll?.card || coll;
   const basePrice = safePrice(card?.price);
   const displayPrice = isPortfolio ? basePrice * quantity : basePrice;
@@ -36,7 +35,7 @@ export default function VaultCard({ coll, onOpenAnalytics, onAdd, onDelete, isPo
     const rotateY = ((x - centerX) / centerX) * maxTilt;
     setTransformStyle(`rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`);
     setFoilPos({ x: `${(x / rect.width) * 100}%`, y: `${(y / rect.height) * 100}%` });
-  }, []);
+  }, [canHover]);
 
   const onMouseLeave = useCallback(() => {
     setIsHovered(false);
@@ -54,6 +53,8 @@ export default function VaultCard({ coll, onOpenAnalytics, onAdd, onDelete, isPo
     e.stopPropagation();
     if (!busy) onAdd(card);
   };
+
+  if (!card) return null;
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} className="relative w-full h-full" style={canHover ? { perspective: "1500px" } : undefined}>
